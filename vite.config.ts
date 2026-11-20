@@ -1,9 +1,26 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// base relativa: funciona no GitHub Pages (em /ulisses-live/) e em qualquer outro endereço.
+const apiTarget = process.env.VITE_API_PROXY || 'http://127.0.0.1:8787'
+
 export default defineConfig({
-  base: './',
   plugins: [react()],
-  build: { target: 'es2019', sourcemap: false, chunkSizeWarningLimit: 900 },
+  server: {
+    host: '127.0.0.1',
+    port: 5173,
+    proxy: {
+      '/api': { target: apiTarget, changeOrigin: false },
+    },
+  },
+  preview: {
+    host: '127.0.0.1',
+    port: 4173,
+    proxy: {
+      '/api': { target: apiTarget, changeOrigin: false },
+    },
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+  },
 })

@@ -1,38 +1,33 @@
 import { lazy, Suspense } from 'react'
-import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
-import { NotConfigured, Spinner } from './components/ui'
-import { isConfigured } from './lib/supabase'
-import Home from './pages/Home'
-import Participate from './pages/Participate'
+import { Route, Routes } from 'react-router-dom'
+import { HomePage } from './pages/Home'
+import { ParticiparPage } from './pages/Participar'
 
-const TV = lazy(() => import('./pages/TV'))
-const Admin = lazy(() => import('./pages/admin/Admin'))
-const QRPage = lazy(() => import('./pages/QRPage'))
-const Gallery = lazy(() => import('./pages/Gallery'))
-const Memories = lazy(() => import('./pages/Memories'))
+const AdminPage = lazy(() => import('./pages/Admin').then((m) => ({ default: m.AdminPage })))
+const GaleriaPage = lazy(() => import('./pages/Galeria').then((m) => ({ default: m.GaleriaPage })))
+const MemoriasPage = lazy(() => import('./pages/Memorias').then((m) => ({ default: m.MemoriasPage })))
+const PrivacidadePage = lazy(() => import('./pages/Privacidade').then((m) => ({ default: m.PrivacidadePage })))
+const QrPage = lazy(() => import('./pages/Qr').then((m) => ({ default: m.QrPage })))
+const TvPage = lazy(() => import('./pages/Tv').then((m) => ({ default: m.TvPage })))
 
-export default function App() {
-  if (!isConfigured) return <NotConfigured />
+function Waiting() {
+  return <div className="sky-page" style={{ padding: 32 }}>Carregando…</div>
+}
+
+export function App() {
   return (
-    <HashRouter>
-      <Suspense
-        fallback={
-          <div className="flex min-h-screen items-center justify-center">
-            <Spinner />
-          </div>
-        }
-      >
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/participar" element={<Participate />} />
-          <Route path="/tv" element={<TV />} />
-          <Route path="/admin" element={<Admin />} />
-          <Route path="/qr" element={<QRPage />} />
-          <Route path="/galeria" element={<Gallery />} />
-          <Route path="/memorias" element={<Memories />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Suspense>
-    </HashRouter>
+    <Suspense fallback={<Waiting />}>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/participar" element={<ParticiparPage />} />
+        <Route path="/tv" element={<TvPage />} />
+        <Route path="/admin" element={<AdminPage />} />
+        <Route path="/qr" element={<QrPage />} />
+        <Route path="/galeria" element={<GaleriaPage />} />
+        <Route path="/memorias" element={<MemoriasPage />} />
+        <Route path="/privacidade" element={<PrivacidadePage />} />
+        <Route path="*" element={<HomePage />} />
+      </Routes>
+    </Suspense>
   )
 }

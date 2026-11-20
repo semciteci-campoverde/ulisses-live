@@ -1,0 +1,4 @@
+Outfit, Bebas Neue, Cinzel e Great Vibes são tipografias do Google Fonts,
+distribuídas sob a SIL Open Font License 1.1.
+DejaVu Sans, usada na exportação de PDF, segue a licença em DejaVu-LICENSE.txt.
+As fontes ficam no próprio site para a feira não depender de internet externa.

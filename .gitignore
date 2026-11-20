@@ -1,5 +1,11 @@
-node_modules
-dist
-test-output
+node_modules/
+dist/
+data/
+.env
 .env.local
+.env.*.local
+.DS_Store
 *.log
+playwright-report/
+test-results/
+.vite/
