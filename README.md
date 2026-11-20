@@ -91,10 +91,16 @@ Segredos opcionais da função de IA, só no painel do Supabase:
 ### 1. Banco e arquivos (Supabase, plano Free)
 
 1. Crie uma conta em https://supabase.com e um projeto novo. Não escolha plano pago.
-2. Em **SQL Editor**, cole e execute o arquivo `supabase/migrations/0001_init.sql`.
-3. O script cria as tabelas, a feira, o evento de demonstração, os buckets `ulisses-private` e `ulisses-public` e a publicação em tempo real.
-4. Em **Authentication → Users**, crie um usuário com e-mail e senha da equipe da escola.
-5. Copie o UUID desse usuário e rode:
+2. Em **SQL Editor**, execute nesta ordem os arquivos de `supabase/migrations/`: `0001_init.sql`, `0002_storage_delete_and_grants.sql`, `0003_preauthorized_admin.sql` e `0004_advisor_fixes.sql`.
+3. O primeiro cria as tabelas, a feira, o evento de demonstração, os buckets `ulisses-private` e `ulisses-public` e o tempo real. O segundo permite apagar arquivos nas funções de exclusão. O terceiro e o quarto ajustam o acesso da equipe.
+4. Em **Authentication → Users**, crie um usuário com e-mail e senha da equipe da escola e confirme o e-mail.
+5. Autorize esse e-mail antes ou depois, com um dos dois comandos:
+
+```sql
+insert into public.admin_invites (email) values ('email-da-equipe@escola');
+```
+
+Se a conta já estiver confirmada, o passo acima não a promove sozinho. Nesse caso use:
 
 ```sql
 insert into public.admin_users (user_id, email)
