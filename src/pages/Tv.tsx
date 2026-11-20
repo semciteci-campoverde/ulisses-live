@@ -96,6 +96,13 @@ export function TvPage() {
     clip.seconds && clip.seconds > 0 ? Math.max(4000, Math.min(VIDEO_MS, clip.seconds * 1000)) : VIDEO_MS,
   )
   const reactR = useRoulette(mural ? reactions : EMPTY, () => REACTION_MS)
+  // Proporção (largura/altura) da foto e do vídeo atuais: decide se os painéis ficam lado a lado ou empilhados
+  const [aspect, setAspect] = useState<{ p?: number; v?: number }>({})
+  const both = !!(photoR.current && videoR.current)
+  const pAr = aspect.p ?? 0.75, vAr = aspect.v ?? 0.75
+  const stacked = both && pAr > 1.15 && vAr > 1.15
+  const clampAr = (n: number) => Math.min(1.78, Math.max(0.56, n))
+  const mediaStyle = both && !stacked ? { gridTemplateColumns: `minmax(0, ${clampAr(pAr)}fr) minmax(0, ${clampAr(vAr)}fr)` } : undefined
 
   // Emojis flutuantes para cada reação nova que chega.
   const freshReactions = reactR.freshIds
@@ -157,13 +164,20 @@ export function TvPage() {
             <div className="display" style={{ fontSize: '4.2vh' }}>{event.name}</div>
           </div>
         </div>
-        <div className="tv-top-qr">
-          <div className="tv-top-qr-text">
-            <div className="cinzel" style={{ color: 'var(--gold-2)' }}>Escaneie e participe</div>
-            <div>Sua mensagem aparece aqui</div>
+        <div className="tv-top-right">
+          <div className="tv-count-pill" data-testid="tv-count">
+            <span className="cinzel">Já somos</span>
+            <strong className="gold-text">{event.presenceCount}</strong>
+            <span>presenças</span>
           </div>
-          <div className="qr-frame">
-            <QrImage value={participate} label="QR Code de presença da Feira do Conhecimento" />
+          <div className="tv-top-qr">
+            <div className="tv-top-qr-text">
+              <div className="cinzel" style={{ color: 'var(--gold-2)' }}>Escaneie e participe</div>
+              <div>Sua mensagem aparece aqui</div>
+            </div>
+            <div className="qr-frame">
+              <QrImage value={participate} label="QR Code de presença da Feira do Conhecimento" />
+            </div>
           </div>
         </div>
       </header>
@@ -187,67 +201,64 @@ export function TvPage() {
             goal={event.celebrationGoal || event.presenceCount}
           />
         ) : (
-          <section className="tv-board">
-            <div className="tv-feature">
-              {msgR.current ? (
-                <div key={`${msgR.current.id}-${msgR.turn}`} className="quote scene tv-message" data-testid="tv-message" data-id={msgR.current.id}>
-                  <p className="script" style={{ fontSize: '4.2vh', margin: 0, color: '#fff6d8' }}>
-                    Mensagens da feira <span className="tv-pos">{msgR.position} de {msgR.total}</span>
-                  </p>
-                  <blockquote>“{msgR.current.body}”</blockquote>
-                  <div className="tv-author">{msgR.current.authorName || 'Visitante'} {msgR.current.emoji}</div>
-                </div>
-              ) : (
-                <div className="tv-invite scene">
-                  <div>
-                    <p className="script" style={{ fontSize: '5vh', margin: 0 }}>Escaneie. Participe. Compartilhe.</p>
-                    <h2 className="display gold-text" style={{ fontSize: '5.2vh', margin: '0.4vh 0' }}>Registre sua presença e deixe uma mensagem.</h2>
-                    <p>As positivas entram no painel na hora. Fotos e vídeos passam pela equipe.</p>
-                  </div>
-                  <div className="qr-frame">
-                    <QrImage value={participate} label="QR Code de presença da Feira do Conhecimento" />
-                  </div>
+          <section className={`tv-board2${photoR.current && videoR.current ? '' : ' one'}`}>
+            <div className={`tv-media${stacked ? ' stacked' : ''}`} style={mediaStyle}>
+              {photoR.current && (
+                <figure className="tv-pane" data-kind="foto">
+                  <div className="tv-pane-bg" style={{ backgroundImage: `url("${photoR.current.url}")` }} aria-hidden="true" />
+                  <img key={`${photoR.current.id}-${photoR.turn}`} className="tv-pane-media tv-fade" src={photoR.current.url} data-testid="tv-photo" data-id={photoR.current.id}
+                    onLoad={(e) => { const im = e.currentTarget; if (im.naturalHeight) setAspect((a) => ({ ...a, p: im.naturalWidth / im.naturalHeight })) }}
+                    alt={photoR.current.post.body || `Foto de ${photoR.current.post.authorName || 'participante'}`} />
+                  <span className="tv-chip tv-chip-kind">📸 Foto <span className="tv-pos">{photoR.position}/{photoR.total}</span></span>
+                  <figcaption className="tv-chip tv-chip-cap">
+                    <strong>{photoR.current.post.authorName || 'Participante'}</strong>{photoR.current.post.body ? ` · ${photoR.current.post.body}` : ''}
+                  </figcaption>
+                </figure>
+              )}
+              {videoR.current && (
+                <figure className="tv-pane" data-kind="video">
+                  <div className="tv-pane-bg video" aria-hidden="true" />
+                  <video key={`${videoR.current.id}-${videoR.turn}`} className="tv-pane-media tv-fade" src={videoR.current.url} data-testid="tv-video" data-id={videoR.current.id}
+                    onLoadedMetadata={(e) => { const vd = e.currentTarget; if (vd.videoHeight) setAspect((a) => ({ ...a, v: vd.videoWidth / vd.videoHeight })) }}
+                    autoPlay muted playsInline preload="auto"
+                    onEnded={videoR.advance}
+                    onError={() => window.setTimeout(videoR.advance, 1500)} />
+                  <span className="tv-chip tv-chip-kind">🎬 Vídeo <span className="tv-pos">{videoR.position}/{videoR.total}</span></span>
+                  <figcaption className="tv-chip tv-chip-cap">
+                    <strong>{videoR.current.post.authorName || 'Participante'}</strong> · sem áudio
+                  </figcaption>
+                </figure>
+              )}
+              {!photoR.current && !videoR.current && (
+                <div className="tv-media-empty">
+                  <div style={{ fontSize: '9vh' }}>📸🎬</div>
+                  <h2 className="display">Fotos e vídeos da feira aparecem aqui</h2>
+                  <p>Envie pelo QR Code. A equipe aprova e eles entram na tela.</p>
                 </div>
               )}
             </div>
-            <aside className="tv-side">
-              <div className="tv-counter-card">
-                <div className="cinzel" style={{ color: 'var(--gold-2)' }}>Já somos</div>
-                <div className="num gold-text">{event.presenceCount}</div>
-                <div>presenças por navegador</div>
-              </div>
-              <div className="tv-thumbs">
-                <figure>
-                  {photoR.current ? (
-                    <>
-                      <img key={`${photoR.current.id}-${photoR.turn}`} className="tv-fade" src={photoR.current.url} data-testid="tv-photo" data-id={photoR.current.id}
-                        alt={photoR.current.post.body || `Foto de ${photoR.current.post.authorName || 'participante'}`} />
-                      <figcaption className="cap">
-                        {photoR.current.post.authorName || 'Participante'}{photoR.current.post.body ? ` — ${photoR.current.post.body}` : ''}
-                        <span className="tv-pos"> · foto {photoR.position}/{photoR.total}</span>
-                      </figcaption>
-                    </>
-                  ) : (
-                    <div className="tv-empty">Fotos aprovadas aparecem aqui</div>
-                  )}
-                </figure>
-                <figure>
-                  {videoR.current ? (
-                    <>
-                      <video key={`${videoR.current.id}-${videoR.turn}`} className="tv-fade" src={videoR.current.url} data-testid="tv-video" data-id={videoR.current.id}
-                        autoPlay muted playsInline preload="auto"
-                        onEnded={videoR.advance}
-                        onError={() => window.setTimeout(videoR.advance, 1500)} />
-                      <figcaption className="cap">
-                        {videoR.current.post.authorName || 'Participante'} · sem áudio
-                        <span className="tv-pos"> · vídeo {videoR.position}/{videoR.total}</span>
-                      </figcaption>
-                    </>
-                  ) : (
-                    <div className="tv-empty">Vídeos aprovados aparecem aqui</div>
-                  )}
-                </figure>
-              </div>
+            <aside className="tv-msgs">
+              {msgR.current ? (
+                <div key={`${msgR.current.id}-${msgR.turn}`} className={`tv-msg-card c${(msgR.position - 1) % 6} tv-pop`} data-testid="tv-message" data-id={msgR.current.id}>
+                  <div className="tv-msg-head">
+                    <span>💬 Mensagens</span>
+                    <span className="tv-pos">{msgR.position} de {msgR.total}</span>
+                  </div>
+                  <div className="tv-quote-mark" aria-hidden="true">“</div>
+                  <blockquote className={(msgR.current.body || '').length > 90 ? 'long' : ''}>{msgR.current.body}</blockquote>
+                  <div className="tv-msg-author">
+                    {msgR.current.emoji && <span className="tv-msg-emoji">{msgR.current.emoji}</span>}
+                    <span>{msgR.current.authorName || 'Visitante'}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="tv-msg-card c0 tv-invite-card">
+                  <p className="script" style={{ fontSize: '4.4vh', margin: 0 }}>Escaneie e participe!</p>
+                  <h2 className="display" style={{ fontSize: '4.4vh', margin: '1vh 0' }}>Deixe sua mensagem para a feira</h2>
+                  <div className="qr-frame"><QrImage value={participate} label="QR Code de presença da Feira do Conhecimento" /></div>
+                  <p>As mensagens positivas aparecem aqui na hora.</p>
+                </div>
+              )}
             </aside>
           </section>
         )}
