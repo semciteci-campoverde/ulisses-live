@@ -476,6 +476,11 @@ async function createContent(opts: {
     }
   }
 
+  // Recusado não é gravado: nem texto, nem nome, nem arquivo (regra da escola).
+  if (moderation.status === 'rejected') {
+    return { status: 400, body: { error: 'Sua mensagem não pôde ser publicada. Que tal deixar uma mensagem positiva?' } }
+  }
+
   const postId = randomUUID()
   const createdAt = db.now()
   db.raw.prepare(`

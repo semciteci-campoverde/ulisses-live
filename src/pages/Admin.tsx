@@ -1,4 +1,4 @@
-import { useEffect, useState, type ChangeEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { DEFAULT_COLORS } from '../../shared/constants.ts'
 import { templateCaptions } from '../../shared/text.ts'
@@ -11,7 +11,7 @@ import { downloadZip, exportCsv, exportExcel, exportPdf } from '../lib/exportRep
 import { formatTime } from '../lib/format.ts'
 import { eventSlug, withEvent } from '../lib/paths.ts'
 
-type Tab = 'painel' | 'moderacao' | 'comunicacao' | 'evento' | 'exibicao' | 'dados' | 'demo'
+type Tab = 'aprovar' | 'menu' | 'publicados' | 'painel' | 'comunicacao' | 'evento' | 'exibicao' | 'dados' | 'demo'
 
 export function AdminPage() {
   const [params] = useSearchParams()
@@ -65,18 +65,28 @@ function Desk({ email, initialSlug, onLogout }: { email: string; initialSlug: st
   const [slug, setSlug] = useState(initialSlug)
   const [events, setEvents] = useState<PublicEvent[]>([])
   const [data, setData] = useState<AdminOverview | null>(null)
-  const [tab, setTab] = useState<Tab>('painel')
+  const [tab, setTab] = useState<Tab>('aprovar')
   const [error, setError] = useState('')
   const [note, setNote] = useState('')
+  const [done, setDone] = useState<Set<string>>(() => new Set())
+  const loading = useRef(false)
 
-  async function reload() {
-    const [list, overview] = await Promise.all([api.listEvents(), api.admin.overview(slug)])
-    setEvents(list)
-    setData(overview)
-  }
+  const reload = useCallback(async () => {
+    if (loading.current) return
+    loading.current = true
+    try {
+      const [list, overview] = await Promise.all([api.listEvents(), api.admin.overview(slug)])
+      setEvents(list)
+      setData(overview)
+      setError('')
+    } finally {
+      loading.current = false
+    }
+  }, [slug])
 
   useEffect(() => {
     let alive = true
+    let debounce = 0
     const run = () => {
       reload().catch((caught) => {
         if (alive) setError(caught instanceof Error ? caught.message : 'Falha ao carregar.')
@@ -84,11 +94,20 @@ function Desk({ email, initialSlug, onLogout }: { email: string; initialSlug: st
     }
     run()
     const timer = window.setInterval(run, 8000)
+    // Tempo real: cada envio novo muda o evento e a fila recarrega na hora.
+    const unsubscribe = api.subscribe(slug, () => {
+      window.clearTimeout(debounce)
+      debounce = window.setTimeout(run, 250)
+    })
     return () => {
       alive = false
       window.clearInterval(timer)
+      window.clearTimeout(debounce)
+      unsubscribe()
     }
-  }, [slug])
+  }, [slug, reload])
+
+  useEffect(() => { setDone(new Set()) }, [slug])
 
   async function act(work: () => Promise<unknown>, ok: string) {
     setError('')
@@ -101,12 +120,45 @@ function Desk({ email, initialSlug, onLogout }: { email: string; initialSlug: st
     }
   }
 
-  const tabs: Array<[Tab, string]> = [
+  const queue = useMemo(
+    () => (data?.posts || [])
+      .filter((post) => post.status === 'pending' && post.type !== 'reaction' && !done.has(post.id))
+      .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)),
+    [data, done],
+  )
+
+  useEffect(() => {
+    document.title = queue.length ? `(${queue.length}) Para aprovar · ULISSES LIVE` : 'ULISSES LIVE · Equipe'
+  }, [queue.length])
+
+  // Aprovar/recusar: some da fila na hora; o servidor confirma em segundo plano.
+  function decide(post: AdminPost, action: 'approve' | 'reject') {
+    setDone((set) => new Set(set).add(post.id))
+    setError('')
+    const work = action === 'approve'
+      ? api.admin.moderate(slug, post.id, 'approve')
+      : api.admin.deletePost(slug, post.id)
+    work
+      .then(() => {
+        setNote(action === 'approve' ? 'Aprovado.' : 'Recusado e apagado.')
+        void reload().catch(() => {})
+      })
+      .catch((caught) => {
+        setDone((set) => {
+          const next = new Set(set)
+          next.delete(post.id)
+          return next
+        })
+        setError(caught instanceof Error ? caught.message : 'Não foi possível concluir. O item voltou para a fila.')
+      })
+  }
+
+  const more: Array<[Tab, string]> = [
+    ['publicados', 'Publicados no painel'],
     ['painel', 'Indicadores'],
-    ['moderacao', 'Moderação'],
     ['comunicacao', 'Comunicação'],
-    ['evento', 'Evento'],
-    ['exibicao', 'Exibição'],
+    ['exibicao', 'Exibição e emergência'],
+    ['evento', 'Configurações do evento'],
     ['dados', 'Exportar'],
     ['demo', 'Demonstração'],
   ]
@@ -114,43 +166,119 @@ function Desk({ email, initialSlug, onLogout }: { email: string; initialSlug: st
   return (
     <div className="sky-page">
       <Sky />
-      <div className="admin-shell" style={{ position: 'relative', zIndex: 1 }}>
-        <aside className="side">
-          <div style={{ padding: '0.4rem 0.6rem 0.8rem' }}>
-            <strong>ULISSES LIVE</strong>
-            <div style={{ fontSize: 13, opacity: 0.75 }}>{email}</div>
-          </div>
-          {tabs.map(([id, label]) => (
-            <button key={id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{label}</button>
-          ))}
-          <button onClick={onLogout}>Sair</button>
-        </aside>
-        <main style={{ padding: '1rem 1.1rem 3rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-            <div>
-              <h1 className="display gold-text" style={{ fontSize: 'clamp(2.2rem, 11vw, 48px)', margin: 0 }}>{data?.event.name || 'Carregando'}</h1>
-              <div style={{ fontSize: 14, opacity: 0.8 }}>{usingSupabase ? 'Banco Supabase' : 'Servidor local desta máquina'} · {data?.event.isDemo ? 'demonstração' : 'dados do evento'}</div>
-            </div>
-            <label>
-              <span className="label">Evento</span>
-              <select className="field" value={slug} onChange={(ev) => setSlug(ev.target.value)}>
-                {events.map((item) => <option key={item.id} value={item.slug}>{item.name}</option>)}
-              </select>
-            </label>
-          </div>
-          {data?.event.emergencyStop && <p className="btn-danger" style={{ display: 'inline-flex' }}>Emergência ligada: as TVs não mostram conteúdo do público.</p>}
-          {error && <p>{error}</p>}
-          {note && <p>{note}</p>}
+      <div className="admin-simple">
+        <header className="admin-top">
+          <button className={tab === 'aprovar' ? 'admin-tab on' : 'admin-tab'} onClick={() => setTab('aprovar')}>
+            Para aprovar <span className="badge" data-testid="pending-badge">{queue.length}</span>
+          </button>
+          <button className={tab !== 'aprovar' ? 'admin-tab on' : 'admin-tab'} onClick={() => setTab(tab === 'aprovar' ? 'menu' : 'aprovar')}>
+            {tab === 'aprovar' ? '☰ Mais' : '← Fila'}
+          </button>
+        </header>
+        <div className="admin-event">
+          <select className="field" value={slug} onChange={(ev) => setSlug(ev.target.value)} aria-label="Evento">
+            {(events.length ? events : data ? [data.event] : []).map((item) => <option key={item.id} value={item.slug}>{item.name}</option>)}
+          </select>
+        </div>
+        {data?.event.emergencyStop && <p className="admin-alert">Emergência ligada: as TVs não mostram conteúdo do público.</p>}
+        {error && <p className="admin-alert">{error}</p>}
+        {note && tab === 'aprovar' && <p className="admin-note" key={note + queue.length}>{note}</p>}
+
+        {data && tab === 'aprovar' && <Fila queue={queue} onDecide={decide} />}
+
+        {tab === 'menu' && (
+          <nav className="admin-menu">
+            {more.map(([id, label]) => <button key={id} className="btn-ghost" onClick={() => setTab(id)}>{label}</button>)}
+            <div style={{ fontSize: 13, opacity: 0.75, marginTop: 8 }}>{email} · {usingSupabase ? 'Supabase' : 'servidor local'}</div>
+            <button className="btn-ghost" onClick={onLogout}>Sair</button>
+          </nav>
+        )}
+        <main className="admin-more">
+          {data && tab === 'publicados' && <Publicados data={data} onAct={act} />}
           {data && tab === 'painel' && <Painel data={data} />}
-          {data && tab === 'moderacao' && <Moderacao data={data} onAct={act} />}
           {data && tab === 'comunicacao' && <Comunicacao data={data} onAct={act} />}
           {data && tab === 'evento' && <Evento key={data.event.id} data={data} onAct={act} onCreated={(created) => setSlug(created)} />}
           {data && tab === 'exibicao' && <Exibicao key={data.event.id} data={data} onAct={act} />}
           {data && tab === 'dados' && <Dados key={data.event.id} data={data} onAct={act} />}
           {data && tab === 'demo' && <Demo data={data} slug={slug} onAct={act} />}
+          {tab !== 'aprovar' && tab !== 'menu' && note && <p>{note}</p>}
         </main>
       </div>
     </div>
+  )
+}
+
+const KIND: Record<string, string> = { message: 'Mensagem', photo: 'Foto', video: 'Vídeo' }
+
+function Fila({ queue, onDecide }: { queue: AdminPost[]; onDecide: (post: AdminPost, action: 'approve' | 'reject') => void }) {
+  if (!queue.length) {
+    return (
+      <section className="fila-empty glass">
+        <div style={{ fontSize: 48 }}>✅</div>
+        <h2 className="display gold-text" style={{ margin: 0 }}>Tudo aprovado</h2>
+        <p>Quando chegar foto, vídeo ou mensagem para revisar, aparece aqui sozinho.</p>
+      </section>
+    )
+  }
+  return (
+    <section className="fila">
+      {queue.map((post) => {
+        const privateOnly = post.audience === 'admin' || post.moderationLabel === 'criticism'
+        return (
+          <article key={post.id} className="fila-card glass" data-testid="fila-card" data-id={post.id}>
+            <div className="fila-kind">
+              {KIND[post.type] || post.type} · {post.authorName || 'Sem nome'} · {formatTime(post.createdAt)}
+              {privateOnly && <span className="fila-private">Crítica: ao aprovar, fica só para a equipe</span>}
+            </div>
+            {post.media.length > 0 && (
+              <div className="fila-media">
+                {post.media.map((media) => media.mime.startsWith('video')
+                  ? <video key={media.id} src={media.url} controls muted playsInline preload="metadata" />
+                  : <img key={media.id} src={media.url} alt="" />)}
+              </div>
+            )}
+            {post.body && <p className="fila-text">{post.emoji} {post.body}</p>}
+            {!post.body && post.emoji && <p className="fila-text">{post.emoji}</p>}
+            <div className="fila-actions">
+              <button className="btn-approve" onClick={() => onDecide(post, 'approve')}>Aprovar</button>
+              <button className="btn-reject" onClick={() => onDecide(post, 'reject')}>Recusar</button>
+            </div>
+          </article>
+        )
+      })}
+    </section>
+  )
+}
+
+function Publicados({ data, onAct }: { data: AdminOverview; onAct: (work: () => Promise<unknown>, ok: string) => Promise<void> }) {
+  const posts = data.posts.filter((post) => post.status === 'approved' && post.type !== 'reaction')
+  return (
+    <section>
+      <h2 className="display gold-text">Publicados no painel</h2>
+      <p>Tudo que está aprovado. “Remover do painel” tira da TV e da galeria na hora.</p>
+      <div className="queue">
+        {posts.length === 0 && <p>Nada publicado ainda.</p>}
+        {posts.map((post) => (
+          <article key={post.id} className={post.media.length ? 'glass with-media' : 'glass'} style={{ borderRadius: 16, padding: '0.8rem' }}>
+            {post.media[0] && (post.media[0].mime.startsWith('video')
+              ? <video className="thumb" src={post.media[0].url} controls muted playsInline />
+              : <img className="thumb" src={post.media[0].url} alt="" />)}
+            <div>
+              <strong>{KIND[post.type] || post.type} · {post.authorName || 'Sem nome'}</strong>
+              {post.audience === 'admin' && <div><small>Só a equipe vê (não vai para a TV).</small></div>}
+              <div>{post.emoji} {post.body}</div>
+              <small>{formatTime(post.createdAt)}</small>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                <button className="btn-danger" onClick={() => void onAct(() => api.admin.moderate(data.event.slug, post.id, 'remove'), 'Removido do painel.')}>Remover do painel</button>
+                <button className="btn-ghost" onClick={() => void onAct(() => api.admin.updatePost(data.event.slug, post.id, { highlight: !post.highlight }), 'Destaque atualizado.')}>
+                  {post.highlight ? 'Tirar destaque' : 'Destacar'}
+                </button>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
   )
 }
 
@@ -163,7 +291,6 @@ function Painel({ data }: { data: AdminOverview }) {
     ['Vídeos', data.stats.videos],
     ['Reações', data.stats.reactions],
     ['Pendentes', data.stats.pending],
-    ['Rejeitados', data.stats.rejected],
     ['Removidos', data.stats.removed],
     ['Engajamento', `${data.stats.engagementRate}%`],
   ]
@@ -196,81 +323,6 @@ function Painel({ data }: { data: AdminOverview }) {
         {data.stats.byDayShift.map((item) => <li key={`${item.day}-${item.shift}`}>{item.day} · {item.shift}: {item.count}</li>)}
       </ul>
     </section>
-  )
-}
-
-function Moderacao({ data, onAct }: { data: AdminOverview; onAct: (work: () => Promise<unknown>, ok: string) => Promise<void> }) {
-  const [filter, setFilter] = useState<'pending' | 'all' | 'approved' | 'rejected'>('pending')
-  const posts = data.posts.filter((post) => filter === 'all' || post.status === filter)
-  return (
-    <section>
-      <p>
-        Mensagens e nomes passam por um classificador de regras em português, no servidor: elogio claro vai ao painel; palavrão, ofensa e propaganda são recusados; crítica fica só aqui; texto neutro espera uma pessoa. Não é inteligência artificial.
-        {data.aiKeyConfigured ? ' Há uma camada opcional de IA ligada para texto.' : ' Nenhuma chave de IA está configurada.'}
-        {' '}Fotos e vídeos continuam na revisão humana. O motivo aparece em cada item e a equipe pode aprovar ou recusar por cima da classificação.
-      </p>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {(['pending', 'approved', 'rejected', 'all'] as const).map((item) => (
-          <button key={item} className={filter === item ? 'btn-gold' : 'btn-ghost'} onClick={() => setFilter(item)}>
-            {item === 'pending' ? 'Pendentes' : item === 'approved' ? 'Aprovados' : item === 'rejected' ? 'Rejeitados' : 'Todos'}
-          </button>
-        ))}
-      </div>
-      <div className="queue" style={{ marginTop: 12 }}>
-        {posts.length === 0 && <p>Nada nesta fila.</p>}
-        {posts.map((post) => <PostCard key={post.id} post={post} slug={data.event.slug} onAct={onAct} />)}
-      </div>
-    </section>
-  )
-}
-
-function labelName(label: string | null): string {
-  const names: Record<string, string> = {
-    positive: 'Positiva — publicada pelas regras',
-    neutral: 'Neutra — na fila humana',
-    blocked: 'Ofensiva — recusada pelas regras',
-    criticism: 'Crítica — só na equipe',
-    personal_data: 'Dado pessoal — só na equipe',
-    spam: 'Propaganda — recusada pelas regras',
-    sensitive: 'Termo sensível — na fila humana',
-    media_review: 'Foto ou vídeo — revisão humana',
-    emoji: 'Reação da lista oficial',
-    clean: 'Sem termo proibido',
-  }
-  return names[label || ''] || 'Classificação por regras'
-}
-
-function PostCard({ post, slug, onAct }: { post: AdminPost; slug: string; onAct: (work: () => Promise<unknown>, ok: string) => Promise<void> }) {
-  const privateFeed = post.audience === 'admin' || post.moderationLabel === 'criticism' || post.moderationLabel === 'personal_data'
-  return (
-    <article className={post.media.length ? 'glass with-media' : 'glass'} style={{ borderRadius: 16, padding: '0.8rem' }}>
-      {post.media[0] && (post.media[0].mime.startsWith('video')
-        ? <video className="thumb" src={post.media[0].url} controls muted />
-        : <img className="thumb" src={post.media[0].url} alt="" />)}
-      <div>
-        <strong>{post.authorName || 'Sem nome'} · {post.type} · {post.status}</strong>
-        <div>{post.emoji} {post.body}</div>
-        <small>{formatTime(post.createdAt)}</small>
-        <div><strong>{labelName(post.moderationLabel)}.</strong> {post.moderationNote}</div>
-        {post.aiUsed && <div>Houve também a camada opcional de IA. A mídia, se houver, continua com revisão humana.</div>}
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
-          <button className="btn-royal" onClick={() => void onAct(() => api.admin.moderate(slug, post.id, 'approve'), 'Atualizado.')}>Aprovar</button>
-          {privateFeed && (
-            <button className="btn-ghost" onClick={() => void onAct(() => api.admin.moderate(slug, post.id, 'approve', '', true), 'Publicado no painel.')}>
-              Publicar no painel mesmo assim
-            </button>
-          )}
-          <button className="btn-ghost" onClick={() => void onAct(() => api.admin.moderate(slug, post.id, 'reject'), 'Rejeitado.')}>Rejeitar</button>
-          <button className="btn-ghost" onClick={() => void onAct(() => api.admin.moderate(slug, post.id, 'remove'), 'Retirado do mural.')}>Retirar agora</button>
-          <button className="btn-ghost" onClick={() => void onAct(() => api.admin.updatePost(slug, post.id, { highlight: !post.highlight }), 'Destaque atualizado.')}>
-            {post.highlight ? 'Tirar destaque' : 'Destacar'}
-          </button>
-          <button className="btn-danger" onClick={() => confirm('Excluir este conteúdo de forma definitiva?') && void onAct(() => api.admin.deletePost(slug, post.id), 'Excluído.')}>
-            Excluir
-          </button>
-        </div>
-      </div>
-    </article>
   )
 }
 

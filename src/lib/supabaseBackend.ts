@@ -232,6 +232,7 @@ export function createSupabaseBackend(url: string, key: string): Backend {
           .from('posts')
           .select('*, post_media(*)')
           .eq('event_id', event.id)
+          .neq('status', 'rejected')
           .order('created_at', { ascending: false })
           .limit(2000)
         fail(postsQuery.error)
