@@ -18,7 +18,7 @@ const FORCE: Record<string, SceneKey> = {
   convite: 'invite',
 }
 const MSG_PER_SCENE = 6
-const PHOTOS_PER_SCENE = 6
+const PHOTOS_PER_SCENE = 5
 
 interface PhotoItem {
   url: string
@@ -230,11 +230,11 @@ export default function TV() {
   )
 }
 
+/** Janela que avança a cada exibição e dá a volta na lista, sempre preenchendo todos os espaços. */
 function batch<T>(list: T[], occurrence: number, size: number): T[] {
   if (list.length <= size) return list
-  const pages = Math.ceil(list.length / size)
-  const start = (occurrence % pages) * size
-  return list.slice(start, start + size)
+  const start = (occurrence * size) % list.length
+  return Array.from({ length: size }, (_, i) => list[(start + i) % list.length])
 }
 
 function Header({ event, stats, live }: { event: EventRow; stats: EventStats | null; live: boolean }) {
@@ -295,23 +295,28 @@ function SceneTitle({ children }: { children: ReactNode }) {
 }
 
 function MessagesScene({ posts }: { posts: Post[] }) {
-  const cols = posts.length <= 2 ? posts.length : posts.length <= 4 ? 2 : 3
+  const n = posts.length
+  const cols = n <= 1 ? 1 : n <= 4 ? 2 : 3
+  const rows = Math.ceil(n / cols)
+  const size = n <= 2 ? 'text-[2.6em]' : n <= 4 ? 'text-[2em]' : 'text-[1.6em]'
   return (
     <div className="flex h-full flex-col">
       <SceneTitle>Mensagens da nossa comunidade</SceneTitle>
-      <div className="grid flex-1 content-center gap-[1.6em]" style={{ gridTemplateColumns: `repeat(${Math.max(1, cols)}, minmax(0,1fr))` }}>
+      <div className="grid min-h-0 flex-1 gap-[1.4em] pb-[.5em]" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))`, gridTemplateRows: `repeat(${rows}, minmax(0,1fr))` }}>
         {posts.map((p, i) => (
           <article
             key={p.id}
-            className="gold-border relative flex animate-fadeUp flex-col justify-between rounded-[1.6em] p-[1.8em] shadow-2xl"
+            className="gold-border relative flex min-h-0 animate-fadeUp items-center gap-[1.2em] overflow-hidden rounded-[1.6em] px-[1.8em] py-[1.2em] shadow-2xl"
             style={{ animationDelay: `${i * 0.15}s` }}
           >
-            {p.featured && <span className="absolute -top-[.8em] right-[1.2em] chip bg-gold-400 text-[.9em] text-navy-900">★ destaque</span>}
-            <span className="animate-float text-[3.4em] leading-none" style={{ animationDelay: `${i * 0.3}s` }}>
+            {p.featured && <span className="absolute right-[1.2em] top-[.6em] chip bg-gold-400 text-[.9em] text-navy-900">★ destaque</span>}
+            <span className="shrink-0 animate-float text-[4em] leading-none" style={{ animationDelay: `${i * 0.3}s` }}>
               {p.emoji || '💬'}
             </span>
-            <p className={`mt-[.5em] font-display font-semibold leading-snug ${p.body.length > 120 ? 'text-[1.55em]' : 'text-[2em]'}`}>“{p.body}”</p>
-            <p className="mt-[.8em] text-[1.3em] font-bold text-gold-300">— {p.author_name}</p>
+            <div className="min-w-0">
+              <p className={`font-display font-semibold leading-snug ${p.body.length > 120 ? 'text-[1.35em]' : size}`}>“{p.body}”</p>
+              <p className="mt-[.5em] text-[1.3em] font-bold text-gold-300">— {p.author_name}</p>
+            </div>
           </article>
         ))}
       </div>
@@ -337,7 +342,7 @@ function PhotosScene({ photos }: { photos: PhotoItem[] }) {
 function PhotoTile({ p, className = '', big = false, delay }: { p: PhotoItem; className?: string; big?: boolean; delay: number }) {
   return (
     <figure className={`relative min-h-0 animate-pop overflow-hidden rounded-[1.4em] border-2 border-gold-400/50 bg-navy-900 shadow-2xl ${className}`} style={{ animationDelay: `${delay}s` }}>
-      <img src={p.url} alt={p.caption || `Foto de ${p.author}`} className="absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-xl" />
+      <img src={p.url} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-xl" />
       <img src={p.url} alt={p.caption || `Foto de ${p.author}`} className="relative h-full w-full animate-kenburns object-contain" />
       <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-[1em] pt-[2.5em]">
         {p.caption && <p className={`font-semibold leading-snug ${big ? 'text-[1.6em]' : 'text-[1.1em]'} line-clamp-2`}>{p.caption}</p>}
@@ -451,16 +456,25 @@ function InstagramScene({ event }: { event: EventRow }) {
 }
 
 function InviteScene({ event }: { event: EventRow }) {
+  const year = event.name.match(/\d{4}$/)?.[0] || ''
   return (
-    <div className="flex h-full items-center justify-center gap-[5em]">
-      <video src={asset('brand/convite.mp4')} poster={asset('brand/convite-720.jpg')} className="h-full max-h-full animate-pop rounded-[1.6em] border-2 border-gold-400/60 shadow-2xl" autoPlay muted loop playsInline />
-      <div className="max-w-[46em] animate-fadeUp">
-        <p className="font-script text-[4em] text-gold-200">Bem-vindos à</p>
-        <p className="font-display text-[5em] font-black leading-[1.05]">
-          <span className="text-silver">{event.name.replace(/\s\d{4}$/, '')}</span> <span className="text-gold">{event.name.match(/\d{4}$/)?.[0] || ''}</span>
+    <div className="flex h-full items-center justify-center gap-[4em] py-[1em]">
+      <video
+        src={asset('brand/convite.mp4')}
+        poster={asset('brand/convite-720.jpg')}
+        className="h-full max-h-full animate-pop rounded-[1.6em] border-2 border-gold-400/60 shadow-2xl"
+        autoPlay
+        muted
+        loop
+        playsInline
+      />
+      <div className="max-w-[48em] animate-fadeUp">
+        <p className="font-script text-[3.2em] leading-tight text-gold-200">Bem-vindos à</p>
+        <p className="font-display text-[4.4em] font-black leading-[1.05]">
+          <span className="text-silver">{year ? event.name.replace(/\s\d{4}$/, '') : event.name}</span> {year && <span className="text-gold">{year}</span>}
         </p>
-        {event.theme && <p className="mt-[.6em] text-[2.2em] italic text-white/90">{event.theme}</p>}
-        <div className="mt-[1.2em] flex flex-wrap gap-[.8em] text-[1.4em]">
+        {event.theme && <p className="mt-[.6em] text-[2em] italic text-white/90">{event.theme}</p>}
+        <div className="mt-[1.2em] flex flex-wrap gap-[.6em] text-[1.2em]">
           {['Literatura e Cultura', 'Ciência e Tecnologia', 'Meio Ambiente e Sustentabilidade', 'Sociedade e Cidadania', 'Inovação'].map((t) => (
             <span key={t} className="rounded-full border border-gold-400/50 bg-white/5 px-[1em] py-[.3em]">
               {t}

@@ -35,7 +35,7 @@ export function Backdrop({ intense = false }: { intense?: boolean }) {
       <div className="absolute -left-[20%] -top-[30%] h-[80vmax] w-[80vmax] rounded-full bg-royal-500/25 blur-[120px]" />
       <div className="absolute -bottom-[30%] -right-[10%] h-[70vmax] w-[70vmax] rounded-full bg-royal-700/30 blur-[120px]" />
       <div className="absolute left-1/2 top-1/3 h-[40vmax] w-[40vmax] -translate-x-1/2 rounded-full bg-gold-400/10 blur-[100px]" />
-      <svg className="absolute right-[4%] top-[8%] h-[22vmin] w-[22vmin] animate-float opacity-40" viewBox="0 0 100 100">
+      <svg className="absolute bottom-[16%] right-[3%] h-[20vmin] w-[20vmin] animate-float opacity-25" viewBox="0 0 100 100">
         <g fill="none" stroke="#86b0ff" strokeWidth="1.4">
           <ellipse cx="50" cy="50" rx="44" ry="16" />
           <ellipse cx="50" cy="50" rx="44" ry="16" transform="rotate(60 50 50)" />
