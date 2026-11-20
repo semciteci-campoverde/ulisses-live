@@ -473,6 +473,34 @@ a { color: inherit; }
 }
 @media (prefers-reduced-motion: reduce) { .tv-fade, .tv-floats span { animation-duration: .01s; } }
 
+/* ---- Admin simples (moderação pelo celular) ---- */
+.admin-simple { position: relative; z-index: 1; max-width: 720px; margin: 0 auto; padding: .8rem .8rem 4rem; }
+.admin-top { position: sticky; top: 0; z-index: 5; display: flex; gap: .5rem; padding: .5rem 0; background: linear-gradient(180deg, rgba(4,12,36,.96), rgba(4,12,36,.82)); backdrop-filter: blur(6px); }
+.admin-tab { flex: 1; min-height: 52px; border-radius: 14px; border: 1px solid rgba(240,193,77,.35); background: rgba(12,32,90,.6); color: white; font-size: 1.05rem; font-weight: 700; cursor: pointer; }
+.admin-tab:last-child { flex: 0 0 auto; padding: 0 1rem; }
+.admin-tab.on { background: rgba(240,193,77,.2); color: var(--gold-2); }
+.badge { display: inline-flex; min-width: 1.7em; height: 1.7em; align-items: center; justify-content: center; margin-left: .4em; padding: 0 .45em; border-radius: 999px; background: #e0353b; color: white; font-size: .9rem; }
+.admin-event { margin: .4rem 0 .6rem; }
+.admin-event .field { font-size: .9rem; padding: .45rem .6rem; }
+.admin-alert { background: rgba(224,53,59,.2); border: 1px solid rgba(224,53,59,.6); border-radius: 12px; padding: .6rem .8rem; }
+.admin-note { opacity: .85; margin: .2rem 0 .6rem; font-size: .95rem; }
+.admin-menu { display: grid; gap: .5rem; margin: .4rem 0 1rem; }
+.admin-menu .btn-ghost { min-height: 50px; text-align: left; font-size: 1rem; }
+.fila { display: grid; gap: 1rem; }
+.fila-card { border-radius: 18px; padding: .9rem; animation: rise .35s ease both; }
+.fila-kind { font-size: .85rem; opacity: .8; margin-bottom: .5rem; display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+.fila-private { background: rgba(240,193,77,.18); color: var(--gold-2); border-radius: 999px; padding: .1rem .6rem; }
+.fila-media { display: flex; gap: .5rem; overflow-x: auto; scroll-snap-type: x mandatory; }
+.fila-media img, .fila-media video { flex: 0 0 100%; width: 100%; max-height: 62vh; object-fit: contain; background: #000; border-radius: 12px; scroll-snap-align: start; }
+.fila-text { font-size: clamp(1.25rem, 5.4vw, 1.7rem); font-weight: 650; line-height: 1.25; margin: .6rem 0; overflow-wrap: anywhere; }
+.fila-actions { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; margin-top: .7rem; }
+.btn-approve, .btn-reject { min-height: 60px; border: 0; border-radius: 14px; color: white; font-size: 1.2rem; font-weight: 800; cursor: pointer; }
+.btn-approve { background: #1f9d55; }
+.btn-reject { background: #d93636; }
+.btn-approve:active, .btn-reject:active { transform: scale(.98); }
+.fila-empty { text-align: center; border-radius: 18px; padding: 2rem 1rem; }
+.admin-more .stat-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+
 @media (max-width: 760px) and (orientation: portrait) {
   .tv-root { height: auto; min-height: 100dvh; overflow-x: hidden; overflow-y: auto; padding-bottom: 1rem; }
   .tv-top, .tv-bottom, .tv-stage { position: relative; inset: auto; left: auto; right: auto; top: auto; bottom: auto; padding: .8rem 1rem; }

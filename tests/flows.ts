@@ -112,7 +112,8 @@ async function main() {
       openedAt: Date.now() - 5000,
     }),
   })
-  assert.equal((obfuscated.body.moderation as { status: string }).status, 'rejected')
+  assert.equal(obfuscated.status, 400)
+  assert.match(String(obfuscated.body.error), /mensagem positiva/)
 
   const neutral = await json('/api/events/feira-2026/posts', {
     method: 'POST',
@@ -140,7 +141,7 @@ async function main() {
       openedAt: Date.now() - 5000,
     }),
   })
-  assert.equal((blocked.body.moderation as { status: string }).status, 'rejected')
+  assert.equal(blocked.status, 400)
 
   const criticism = await json('/api/events/feira-2026/posts', {
     method: 'POST',
