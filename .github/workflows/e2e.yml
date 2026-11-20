@@ -1,0 +1,46 @@
+name: Testes ponta a ponta
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ['Publicar site']
+    types: [completed]
+permissions:
+  contents: write
+jobs:
+  e2e:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    env:
+      ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+      ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Endereço do site
+        run: echo "SITE_URL=https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/" >> $GITHUB_ENV
+      - name: Rodar testes
+        run: npx playwright test
+        continue-on-error: true
+        id: tests
+      - name: Publicar resultados no ramo test-results
+        if: always()
+        run: |
+          mkdir -p /tmp/out && cp -r test-output/screens /tmp/out/ 2>/dev/null || true
+          cp test-output/results.json /tmp/out/ 2>/dev/null || true
+          node -e "
+            const r=JSON.parse(require('fs').readFileSync('test-output/results.json','utf8'));
+            const out=[];const walk=s=>{(s.specs||[]).forEach(sp=>sp.tests.forEach(t=>t.results.forEach(x=>out.push((x.status==='passed'?'OK   ':'FALHA ')+sp.title+(x.error?'\n      '+String(x.error.message||'').split('\n').slice(0,6).join('\n      '):'')))));(s.suites||[]).forEach(walk)};
+            r.suites.forEach(walk);require('fs').writeFileSync('/tmp/out/resumo.txt',out.join('\n')+'\n');console.log(out.join('\n'))" || true
+          find test-output/artifacts -name '*.png' -exec cp {} /tmp/out/ \; 2>/dev/null || true
+          cd /tmp/out && git init -q && git checkout -q -b test-results
+          git config user.name "ulisses-ci" && git config user.email "ci@users.noreply.github.com"
+          echo "run ${{ github.run_id }} · $(date -u)" > RUN.txt
+          git add . && git commit -qm "resultados ${{ github.run_id }}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" test-results
+      - name: Falhar se algum teste falhou
+        if: steps.tests.outcome == 'failure'
+        run: exit 1
