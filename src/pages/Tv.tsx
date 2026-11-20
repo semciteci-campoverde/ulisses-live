@@ -66,7 +66,7 @@ export function TvPage() {
             <div className="display" style={{ fontSize: '4.2vh' }}>{event.name}</div>
           </div>
         </div>
-        <div style={{ textAlign: 'right' }}>
+        <div className="tv-top-count" style={{ textAlign: 'right' }}>
           <div className="cinzel" style={{ fontSize: '1.4vh' }}>Já somos</div>
           <div className="display gold-text" style={{ fontSize: '7vh', lineHeight: 0.85 }}>{event.presenceCount}</div>
           <div style={{ fontSize: '1.5vh', opacity: 0.8 }}>presenças por navegador</div>

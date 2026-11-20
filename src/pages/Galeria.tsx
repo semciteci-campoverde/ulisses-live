@@ -18,7 +18,7 @@ export function GaleriaPage() {
       <Sky />
       <Topbar event={event} slug={slug} />
       <main className="page-wrap">
-        <h1 className="display gold-text" style={{ fontSize: 64, marginBottom: 0 }}>Galeria</h1>
+        <h1 className="display gold-text" style={{ fontSize: 'clamp(2.2rem, 11vw, 64px)', marginBottom: 0 }}>Galeria</h1>
         <p>Somente conteúdos aprovados por uma pessoa da equipe e liberados para o público.</p>
         <h2>Fotografias</h2>
         {photos.length === 0 && <p>Ainda não há fotografias autorizadas.</p>}

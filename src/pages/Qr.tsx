@@ -21,18 +21,18 @@ export function QrPage() {
         <Topbar event={event} slug={slug} />
       </div>
       <main className="page-wrap">
-        <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+        <div className="no-print qr-head" style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
           <div>
-            <h1 className="display gold-text" style={{ fontSize: 64, margin: 0 }}>QR Codes</h1>
+            <h1 className="display gold-text" style={{ fontSize: 'clamp(2.2rem, 11vw, 64px)', margin: 0 }}>QR Codes</h1>
             <p>Imprima o QR de presença e o QR do Instagram. Eles são visualmente diferentes de propósito.</p>
           </div>
           <button className="btn-gold" onClick={() => window.print()}>Imprimir</button>
         </div>
-        <section className="print-sheet glass" style={{ borderRadius: 28, padding: '1.4rem', marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 280px', gap: 18, alignItems: 'center' }}>
+        <section className="print-sheet glass qr-sheet" style={{ borderRadius: 28, padding: '1.4rem', marginTop: 12 }}>
           <div>
             <SchoolLogo src={event?.logoUrl} />
             <p className="cinzel" style={{ color: '#9bbcff' }}>Presença no evento</p>
-            <h2 className="display" style={{ fontSize: 54, margin: 0 }}>Escaneie. Participe. Compartilhe.</h2>
+            <h2 className="display" style={{ fontSize: 'clamp(2.2rem, 11vw, 54px)', margin: 0 }}>Escaneie. Participe. Compartilhe.</h2>
             <p>Registre sua presença e faça parte da nossa história. {event?.name}</p>
             <p style={{ wordBreak: 'break-all' }}>{presence}</p>
           </div>
@@ -40,10 +40,10 @@ export function QrPage() {
             <QrImage value={presence} label="QR Code de presença" />
           </div>
         </section>
-        <section className="print-sheet" style={{ borderRadius: 28, padding: '1.4rem', marginTop: 16, display: 'grid', gridTemplateColumns: '1fr 280px', gap: 18, alignItems: 'center', background: 'linear-gradient(135deg, #2a1248, #12306d)' }}>
+        <section className="print-sheet qr-sheet" style={{ borderRadius: 28, padding: '1.4rem', marginTop: 16, background: 'linear-gradient(135deg, #2a1248, #12306d)' }}>
           <div>
             <p className="cinzel" style={{ color: '#ffd0ea' }}>Instagram oficial — QR diferente</p>
-            <h2 className="display" style={{ fontSize: 48, margin: 0 }}>Conecte-se com a nossa escola!</h2>
+            <h2 className="display" style={{ fontSize: 'clamp(2.2rem, 11vw, 48px)', margin: 0 }}>Conecte-se com a nossa escola!</h2>
             <p>{event?.instagramHandle}</p>
             <p>Acompanhe projetos, conquistas e os melhores momentos da feira. Este código não registra presença.</p>
           </div>

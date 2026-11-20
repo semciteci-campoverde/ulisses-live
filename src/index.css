@@ -228,8 +228,19 @@ a { color: inherit; }
   font-size: 0.82rem;
 }
 
-.page-wrap { position: relative; z-index: 1; width: min(1080px, calc(100% - 1.5rem)); margin: 0 auto; padding-bottom: 3rem; }
+.page-wrap { position: relative; z-index: 1; width: min(1080px, calc(100% - 2rem)); margin: 0 auto; padding-bottom: 3rem; }
 .narrow { width: min(560px, 100%); margin: 0 auto; }
+/* page-wrap + narrow: mantém a margem lateral no celular */
+.page-wrap.narrow { width: min(560px, calc(100% - 2rem)); }
+.page-wrap h1, .page-wrap h2 { overflow-wrap: anywhere; }
+.page-wrap img, .page-wrap video { max-width: 100%; }
+.sky-page { overflow-x: hidden; }
+.qr-sheet { display: grid; grid-template-columns: 1fr 280px; gap: 18px; align-items: center; }
+@media (max-width: 720px) {
+  .qr-sheet { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+  .qr-head { flex-wrap: wrap; }
+}
+
 
 .emoji-row { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .emoji-btn {
@@ -261,8 +272,11 @@ a { color: inherit; }
 .banner-demo {
   position: relative;
   z-index: 3;
-  background: repeating-linear-gradient(135deg, #f0c14d, #f0c14d 12px, #1a1404 12px, #1a1404 24px);
+  background: #f0c14d;
+  border-bottom: 6px solid transparent;
+  border-image: repeating-linear-gradient(135deg, #f0c14d 0 12px, #1a1404 12px 24px) 6;
   color: #1a1404;
+  font-size: 0.85rem;
   text-align: center;
   font-weight: 800;
   padding: 0.45rem 0.8rem;
@@ -396,7 +410,7 @@ a { color: inherit; }
   border-radius: 1.2rem;
 }
 .qr-frame.ig { background: linear-gradient(135deg, #feda75, #d62976 55%, #4f5bd5); padding: 0.55rem; }
-.qr-frame img { display: block; width: min(34vh, 320px); height: auto; background: white; border-radius: 0.8rem; }
+.qr-frame img { display: block; width: min(34vh, 320px, 68vw); height: auto; background: white; border-radius: 0.8rem; }
 
 .admin-shell { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
 .side { padding: 1rem; border-right: 1px solid rgba(240,193,77,.2); background: rgba(4, 12, 36, 0.94); }
@@ -431,4 +445,27 @@ a { color: inherit; }
   body, .sky-page { background: white !important; color: #111 !important; }
   .print-sheet { break-after: page; color: #111; }
   .gold-text { color: #111; background: none; filter: none; }
+}
+
+/* Painel da TV aberto num celular em pé: empilha em vez de cortar */
+@media (max-width: 760px) and (orientation: portrait) {
+  .tv-root { height: auto; min-height: 100dvh; overflow-x: hidden; overflow-y: auto; padding-bottom: 1rem; }
+  .tv-top, .tv-bottom, .tv-stage { position: relative; inset: auto; left: auto; right: auto; top: auto; bottom: auto; padding: .8rem 1rem; }
+  .tv-top .tv-top-count { display: none; }
+  .tv-top .display { font-size: 2rem !important; }
+  .tv-top .cinzel { font-size: .7rem !important; }
+  .tv-board { grid-template-columns: 1fr; height: auto; gap: .8rem; }
+  .tv-feature, .tv-side { height: auto; }
+  .tv-feature { padding: 1rem; border-radius: 1rem; }
+  .tv-invite { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+  .tv-invite .script { font-size: 2.2rem !important; }
+  .tv-invite .display { font-size: 2.4rem !important; }
+  .tv-side { grid-template-rows: auto auto; }
+  .tv-counter-card { border-radius: 1rem; padding: .8rem; }
+  .tv-counter-card .num { font-size: 5rem; }
+  .tv-thumbs { grid-template-rows: none; grid-template-columns: 1fr 1fr; }
+  .tv-thumbs figure { aspect-ratio: 3/4; border-radius: .8rem; }
+  .tv-empty { font-size: .95rem; }
+  .tv-bottom { flex-wrap: wrap; }
+  .quote blockquote { font-size: 1.6rem !important; }
 }

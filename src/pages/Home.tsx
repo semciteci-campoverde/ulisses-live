@@ -64,7 +64,7 @@ export function HomePage() {
         </figure>
       </main>
       <section className="page-wrap">
-        <h2 className="display" style={{ fontSize: 42, marginBottom: 8 }}>Como participar</h2>
+        <h2 className="display" style={{ fontSize: 'clamp(2.2rem, 11vw, 42px)', marginBottom: 8 }}>Como participar</h2>
         <div className="stat-grid">
           {[
             ['1. Escaneie', 'Um único QR Code em salas, corredores e espaços da escola.'],
