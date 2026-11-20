@@ -448,10 +448,41 @@ a { color: inherit; }
 }
 
 /* Painel da TV aberto num celular em pé: empilha em vez de cortar */
+/* ---- Roleta da TV ---- */
+.tv-top-qr { display: flex; align-items: center; gap: 1vw; text-align: right; font-size: 1.5vh; }
+.tv-top-qr .cinzel { font-size: 1.5vh; }
+.tv-top-qr .qr-frame { padding: .3vh; border-radius: .8vh; }
+.tv-top-qr .qr-frame img { width: 9.4vh; border-radius: .5vh; }
+.tv-message { display: flex; flex-direction: column; justify-content: center; width: 100%; border-left: 4px solid rgba(240,193,77,.9); padding-left: 2vw; }
+.tv-message blockquote { font-size: clamp(28px, 4.1vw, 84px); margin: 1.4vh 0; font-weight: 650; line-height: 1.18; overflow-wrap: anywhere; }
+.tv-author { font-size: 3vh; color: var(--gold-2); }
+.tv-pos { font-family: inherit; font-size: .45em; opacity: .7; margin-left: .6em; letter-spacing: .04em; }
+.cap .tv-pos { font-size: 1em; }
+.tv-fade { animation: tvfade .6s ease both; }
+@keyframes tvfade { from { opacity: 0; transform: scale(1.02); } to { opacity: 1; transform: none; } }
+.tv-slogan { min-width: 0; }
+.tv-reactions { display: flex; align-items: center; gap: .7vw; font-size: 2.2vh; flex-wrap: nowrap; overflow: hidden; }
+.tv-react-now { padding: .3vh .9vw; border-radius: 999px; background: rgba(240,193,77,.18); border: 1px solid rgba(240,193,77,.45); white-space: nowrap; }
+.tv-react-count { white-space: nowrap; opacity: .92; }
+.tv-floats { position: absolute; inset: 0; pointer-events: none; z-index: 5; overflow: hidden; }
+.tv-floats span { position: absolute; bottom: -10vh; animation: floatup 5s ease-out forwards; filter: drop-shadow(0 4px 10px rgba(0,0,0,.35)); }
+@keyframes floatup {
+  0% { transform: translateY(0) scale(.6); opacity: 0; }
+  12% { opacity: 1; }
+  100% { transform: translateY(-95vh) scale(1.25); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .tv-fade, .tv-floats span { animation-duration: .01s; } }
+
 @media (max-width: 760px) and (orientation: portrait) {
   .tv-root { height: auto; min-height: 100dvh; overflow-x: hidden; overflow-y: auto; padding-bottom: 1rem; }
   .tv-top, .tv-bottom, .tv-stage { position: relative; inset: auto; left: auto; right: auto; top: auto; bottom: auto; padding: .8rem 1rem; }
   .tv-top .tv-top-count { display: none; }
+  .tv-top-qr-text { display: none; }
+  .tv-top-qr .qr-frame img { width: 64px; }
+  .tv-message { padding-left: 1rem; }
+  .tv-message blockquote { font-size: 1.6rem; }
+  .tv-author { font-size: 1.1rem; }
+  .tv-reactions { flex-wrap: wrap; font-size: 1rem; gap: .5rem; }
   .tv-top .display { font-size: 2rem !important; }
   .tv-top .cinzel { font-size: .7rem !important; }
   .tv-board { grid-template-columns: 1fr; height: auto; gap: .8rem; }
