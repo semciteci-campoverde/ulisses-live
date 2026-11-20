@@ -49,7 +49,6 @@ export function TvPage() {
   const elapsed = Math.max(0, serverNow - Date.parse(event.tvEpoch))
   const index = Math.floor(elapsed / duration) % scenes.length
   const progress = (elapsed % duration) / duration
-  const scene: SceneId = event.emergencyStop ? 'invite' : celebrating ? 'celebration' : scenes[index]
   const messages = posts.filter((post) => post.type === 'message')
   const photos = posts.filter((post) => post.type === 'photo' && post.media.length)
   const videos = posts.filter((post) => post.type === 'video' && post.media.length)
@@ -81,10 +80,9 @@ export function TvPage() {
             <h2 className="display gold-text" style={{ fontSize: '8vh' }}>Exibição interrompida pela organização</h2>
             <p>A programação visual volta em instantes.</p>
           </section>
-        ) : (
+        ) : celebrating ? (
           <SceneView
-            key={`${scene}-${index}`}
-            scene={scene}
+            scene="celebration"
             event={event}
             messages={messages}
             photos={photos}
@@ -92,6 +90,17 @@ export function TvPage() {
             participate={participate}
             page={Math.floor(elapsed / duration)}
             goal={event.celebrationGoal || event.presenceCount}
+          />
+        ) : (
+          <LiveBoard
+            key={index}
+            event={event}
+            messages={messages}
+            photos={photos}
+            videos={videos}
+            participate={participate}
+            page={Math.floor(elapsed / duration)}
+            mural={event.muralEnabled}
           />
         )}
       </main>
@@ -108,6 +117,75 @@ export function TvPage() {
       </footer>
       <div className="progress" aria-hidden="true"><i style={{ width: `${Math.min(100, progress * 100)}%` }} /></div>
     </div>
+  )
+}
+
+function LiveBoard(props: {
+  event: PublicEvent
+  messages: PublicPost[]
+  photos: PublicPost[]
+  videos: PublicPost[]
+  participate: string
+  page: number
+  mural: boolean
+}) {
+  const { event, messages, photos, videos, participate, page, mural } = props
+  const message = messages.length ? messages[page % messages.length] : null
+  const photo = photos.length ? photos[page % photos.length] : null
+  const video = videos.length ? videos[page % videos.length] : null
+  const showInvite = page % 5 === 4 || !message
+  return (
+    <section className="tv-board scene">
+      <div className="tv-feature">
+        {showInvite || !mural ? (
+          <div className="tv-invite">
+            <div>
+              <p className="script" style={{ fontSize: '5vh', margin: 0 }}>Escaneie. Participe. Compartilhe.</p>
+              <h2 className="display gold-text" style={{ fontSize: '5.2vh', margin: '0.4vh 0' }}>Registre sua presença e deixe uma mensagem.</h2>
+              <p>As positivas entram no painel na hora. Fotos e vídeos passam pela equipe.</p>
+            </div>
+            <div className="qr-frame">
+              <QrImage value={participate} label="QR Code de presença da Feira do Conhecimento" />
+            </div>
+          </div>
+        ) : message ? (
+          <div className="quote" style={{ borderLeft: '4px solid rgba(240,193,77,.9)', paddingLeft: '2vw' }}>
+            <p className="script" style={{ fontSize: '4.6vh', margin: 0, color: '#fff6d8' }}>Mensagens da feira</p>
+            <blockquote style={{ fontSize: 'clamp(26px, 3.3vw, 54px)', margin: '1vh 0', fontWeight: 650 }}>"{message.body}"</blockquote>
+            <div style={{ fontSize: '2.6vh', color: 'var(--gold-2)' }}>{message.authorName} {message.emoji}</div>
+          </div>
+        ) : null}
+      </div>
+      <aside className="tv-side">
+        <div className="tv-counter-card">
+          <div className="cinzel" style={{ color: 'var(--gold-2)' }}>Já somos</div>
+          <div className="num gold-text">{event.presenceCount}</div>
+          <div>presenças por navegador</div>
+        </div>
+        <div className="tv-thumbs">
+          <figure>
+            {mural && photo ? (
+              <>
+                <img src={photo.media[0].url} alt={photo.body || `Foto de ${photo.authorName || 'participante'}`} />
+                <figcaption className="cap">{photo.authorName}{photo.body ? ` — ${photo.body}` : ''}</figcaption>
+              </>
+            ) : (
+              <div className="tv-empty">Fotos aprovadas aparecem aqui</div>
+            )}
+          </figure>
+          <figure>
+            {mural && video ? (
+              <>
+                <video key={video.id} src={video.media[0].url} autoPlay muted playsInline loop />
+                <figcaption className="cap">{video.authorName} · sem áudio</figcaption>
+              </>
+            ) : (
+              <div className="tv-empty">Vídeos aprovados aparecem aqui</div>
+            )}
+          </figure>
+        </div>
+      </aside>
+    </section>
   )
 }
 

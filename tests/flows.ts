@@ -90,14 +90,44 @@ async function main() {
     }),
   })
   assert.equal(pending.status, 201)
-  const pendingMod = pending.body.moderation as { status: string; aiUsed: boolean }
-  assert.equal(pendingMod.status, 'pending')
+  const pendingMod = pending.body.moderation as { status: string; aiUsed: boolean; label: string }
+  assert.equal(pendingMod.status, 'approved')
+  assert.equal(pendingMod.label, 'positive')
   assert.equal(pendingMod.aiUsed, false)
   const postId = String(pending.body.postId)
 
   const feedBefore = await json('/api/events/feira-2026/feed')
-  const postsBefore = feedBefore.body.posts as unknown[]
-  assert.equal(postsBefore.length, 0)
+  const liveMessages = (feedBefore.body.posts as { id: string; type: string }[]).filter((post) => post.type === 'message')
+  assert.equal(liveMessages.length, 1)
+  assert.equal(liveMessages[0].id, postId)
+
+  const obfuscated = await json('/api/events/feira-2026/posts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      visitorId: visitorB,
+      type: 'message',
+      authorName: 'Bia',
+      body: 'p o r r a',
+      openedAt: Date.now() - 5000,
+    }),
+  })
+  assert.equal((obfuscated.body.moderation as { status: string }).status, 'rejected')
+
+  const neutral = await json('/api/events/feira-2026/posts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      visitorId: visitorA,
+      type: 'message',
+      authorName: 'Ana',
+      body: 'Estou na sala de robotica.',
+      openedAt: Date.now() - 5000,
+    }),
+  })
+  assert.equal((neutral.body.moderation as { status: string; label: string }).status, 'pending')
+  assert.equal((neutral.body.moderation as { label: string }).label, 'neutral')
+  const neutralId = String(neutral.body.postId)
 
   const blocked = await json('/api/events/feira-2026/posts', {
     method: 'POST',
@@ -132,8 +162,10 @@ async function main() {
   })
   assert.equal((reaction.body.moderation as { status: string }).status, 'approved')
   const feedReaction = await json('/api/events/feira-2026/feed')
-  assert.equal((feedReaction.body.posts as { type: string }[]).some((post) => post.type === 'reaction'), true)
-  assert.equal((feedReaction.body.posts as { type: string }[]).some((post) => post.type === 'message'), false)
+  const midFeed = feedReaction.body.posts as { id: string; type: string }[]
+  assert.equal(midFeed.some((post) => post.type === 'reaction'), true)
+  assert.equal(midFeed.some((post) => post.id === postId), true)
+  assert.equal(midFeed.some((post) => post.id === neutralId), false)
 
   const login = await fetch(`${base}/api/admin/login`, {
     method: 'POST',
@@ -154,13 +186,13 @@ async function main() {
   const approved = await json(`/api/admin/events/feira-2026/moderate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Cookie: cookie },
-    body: JSON.stringify({ postId, action: 'approve' }),
+    body: JSON.stringify({ postId: neutralId, action: 'approve' }),
   })
   assert.equal(approved.status, 200)
   const feedAfter = await json('/api/events/feira-2026/feed')
   const messages = (feedAfter.body.posts as { id: string; type: string }[]).filter((post) => post.type === 'message')
-  assert.equal(messages.length, 1)
-  assert.equal(messages[0].id, postId)
+  assert.equal(messages.some((post) => post.id === neutralId), true)
+  assert.equal(messages.some((post) => post.id === postId), true)
 
   const hidden = await fetch(`${base}/api/media/nao-existe`)
   assert.equal(hidden.status, 404)

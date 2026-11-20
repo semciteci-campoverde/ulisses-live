@@ -305,6 +305,56 @@ a { color: inherit; }
   z-index: 2;
 }
 .scene { height: 100%; animation: rise .7s ease both; }
+.tv-board {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 1.45fr 0.78fr;
+  gap: 1.5vw;
+}
+.tv-feature, .tv-side { min-height: 0; height: 100%; }
+.tv-feature {
+  display: flex;
+  align-items: center;
+  border-radius: 1.4vw;
+  background: linear-gradient(180deg, rgba(12, 32, 90, 0.45), rgba(3, 10, 28, 0.35));
+  border: 1px solid rgba(240, 193, 77, 0.28);
+  padding: 1.5vh 1.4vw;
+}
+.tv-invite { display: grid; grid-template-columns: 1.2fr auto; gap: 1.4vw; align-items: center; width: 100%; }
+.tv-side { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 1.2vh; }
+.tv-counter-card {
+  text-align: center;
+  border-radius: 1.2vw;
+  border: 1px solid rgba(240, 193, 77, 0.7);
+  background: linear-gradient(180deg, rgba(20, 48, 130, 0.72), rgba(4, 12, 36, 0.88));
+  box-shadow: 0 0 32px rgba(240, 193, 77, 0.16);
+  padding: 0.8vh 1vw 1.2vh;
+}
+.tv-counter-card .num {
+  font-family: "Bebas Neue", Impact, sans-serif;
+  font-size: 14vh;
+  line-height: 0.82;
+}
+.tv-thumbs { display: grid; grid-template-rows: 1fr 1fr; gap: 1vh; min-height: 0; }
+.tv-thumbs figure {
+  margin: 0;
+  position: relative;
+  overflow: hidden;
+  border-radius: 1vw;
+  border: 1px solid rgba(240, 193, 77, 0.45);
+  min-height: 0;
+  background: rgba(0, 0, 0, 0.25);
+}
+.tv-thumbs img, .tv-thumbs video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tv-empty {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 1rem;
+  color: rgba(255, 244, 214, 0.8);
+  font-size: 2vh;
+}
 .progress {
   position: absolute;
   left: 0; right: 0; bottom: 0;

@@ -141,7 +141,7 @@ export function openDatabase(dataDir: string): Db {
       video_max_bytes INTEGER NOT NULL DEFAULT 26214400,
       photo_max_count INTEGER NOT NULL DEFAULT 5,
       message_max_chars INTEGER NOT NULL DEFAULT 200,
-      auto_approve_clean_messages INTEGER NOT NULL DEFAULT 0,
+      auto_approve_clean_messages INTEGER NOT NULL DEFAULT 1,
       tv_epoch TEXT NOT NULL,
       celebration_goal INTEGER,
       celebration_until TEXT,

@@ -4,6 +4,8 @@ export type PostStatus = 'pending' | 'approved' | 'rejected' | 'removed'
 export type Audience = 'public' | 'admin'
 export type ModerationLabel =
   | 'clean'
+  | 'positive'
+  | 'neutral'
   | 'blocked'
   | 'criticism'
   | 'personal_data'

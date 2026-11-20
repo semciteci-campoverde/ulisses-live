@@ -423,27 +423,55 @@ async function createContent(opts: {
     authorName: author,
     body,
     emoji,
-    autoApproveClean: Boolean(event.auto_approve_clean_messages),
+    autoPublishPositive: Number(event.auto_approve_clean_messages) !== 0,
     aiEnabled,
   })
 
-  if (aiEnabled && type === 'message' && moderation.label !== 'blocked' && moderation.label !== 'personal_data') {
+  if (aiEnabled && type === 'message' && moderation.label !== 'personal_data') {
     const ai = await aiClassify(`${author || ''}: ${body || ''}`)
     if (ai) {
-      const map = {
-        approve: { status: 'approved' as const, audience: 'public' as const, label: moderation.label },
-        reject: { status: 'rejected' as const, audience: 'public' as const, label: 'blocked' as const },
-        criticism: { status: 'pending' as const, audience: 'admin' as const, label: 'criticism' as const },
-        pending: { status: 'pending' as const, audience: 'public' as const, label: 'sensitive' as const },
-      }
-      const picked = map[ai.decision as keyof typeof map] || map.pending
-      moderation = {
-        label: picked.label,
-        status: picked.status,
-        audience: picked.audience,
-        note: `Análise automática de texto configurada pela escola: ${ai.reason}`,
-        aiUsed: true,
-        sentiment: ai.sentiment,
+      const rulesRejected = moderation.status === 'rejected'
+      if (rulesRejected && ai.decision === 'approve') {
+        moderation = {
+          ...moderation,
+          note: `${moderation.note} A camada opcional de IA não reverteu o bloqueio.`,
+        }
+      } else if (ai.decision === 'reject') {
+        moderation = {
+          label: 'blocked',
+          status: 'rejected',
+          audience: 'public',
+          note: `Camada opcional de IA, depois das regras: ${ai.reason}`,
+          aiUsed: true,
+          sentiment: ai.sentiment,
+        }
+      } else if (ai.decision === 'criticism') {
+        moderation = {
+          label: 'criticism',
+          status: 'pending',
+          audience: 'admin',
+          note: `Camada opcional de IA: crítica encaminhada só à equipe. ${ai.reason}`,
+          aiUsed: true,
+          sentiment: ai.sentiment,
+        }
+      } else if (ai.decision === 'pending' && moderation.status === 'approved') {
+        moderation = {
+          label: 'neutral',
+          status: 'pending',
+          audience: 'public',
+          note: `A camada opcional de IA pediu revisão humana: ${ai.reason}`,
+          aiUsed: true,
+          sentiment: ai.sentiment,
+        }
+      } else if (ai.decision === 'approve' && !rulesRejected) {
+        moderation = {
+          label: 'positive',
+          status: 'approved',
+          audience: 'public',
+          note: `Regras e camada opcional de IA: mensagem positiva. ${ai.reason}`,
+          aiUsed: true,
+          sentiment: ai.sentiment || 'positive',
+        }
       }
     }
   }

@@ -32,7 +32,7 @@ create table if not exists public.events (
   video_max_bytes integer not null default 26214400,
   photo_max_count integer not null default 5,
   message_max_chars integer not null default 200,
-  auto_approve_clean_messages boolean not null default false,
+  auto_approve_clean_messages boolean not null default true,
   tv_epoch timestamptz not null default now(),
   celebration_goal integer,
   celebration_until timestamptz,
@@ -124,65 +124,154 @@ as $$
     'aaaaaeeeeiiiiooooouuuucn');
 $$;
 
--- Filtro de regras. Mantenha alinhado com shared/moderation.ts.
--- Isto não é inteligência artificial.
+create or replace function public.squeeze_text(p_text text)
+returns text
+language sql
+immutable
+as $$
+  select regexp_replace(coalesce(p_text, ''), '(.)\1+', '\1', 'g');
+$$;
+
+-- Normaliza ofuscação: acento, leet colado em letra, repetição e "p o r r a".
+create or replace function public.normalize_school_text(p_text text)
+returns text
+language plpgsql
+immutable
+as $$
+declare
+  t text := public.fold_text(coalesce(p_text, ''));
+  parts text[];
+  part text;
+  buf text := '';
+  out text := '';
+  squeezed text;
+  joined boolean;
+begin
+  t := replace(t, '@', 'a');
+  t := replace(t, '$', 's');
+  t := regexp_replace(t, '([a-z])[|!]([a-z])', '\1i\2', 'g');
+  t := regexp_replace(t, '([a-z])0([a-z])', '\1o\2', 'g');
+  t := regexp_replace(t, '([a-z])0', '\1o', 'g');
+  t := regexp_replace(t, '0([a-z])', 'o\1', 'g');
+  t := regexp_replace(t, '([a-z])1([a-z])', '\1i\2', 'g');
+  t := regexp_replace(t, '([a-z])3([a-z])', '\1e\2', 'g');
+  t := regexp_replace(t, '([a-z])4([a-z])', '\1a\2', 'g');
+  t := regexp_replace(t, '([a-z])5([a-z])', '\1s\2', 'g');
+  t := regexp_replace(t, '([a-z])7([a-z])', '\1t\2', 'g');
+  t := regexp_replace(t, '[^a-z\s]', ' ', 'g');
+  t := regexp_replace(t, '(.)\1{2,}', '\1\1', 'g');
+  t := trim(regexp_replace(t, '\s+', ' ', 'g'));
+  if t = '' then return ''; end if;
+  parts := regexp_split_to_array(t, ' ');
+  foreach part in array parts loop
+    if part is null or part = '' then continue; end if;
+    if char_length(part) = 1 then
+      buf := buf || part;
+    else
+      if buf <> '' then
+        squeezed := public.squeeze_text(buf);
+        joined := char_length(buf) >= 3 or squeezed in ('porra','caralho','merda','foda','cu','puta','vsf','vtnc','pqp','krl','buceta');
+        if joined then out := out || ' ' || buf; else out := out || ' ' || trim(regexp_replace(buf, '(.)', '\1 ', 'g')); end if;
+        buf := '';
+      end if;
+      out := out || ' ' || part;
+    end if;
+  end loop;
+  if buf <> '' then
+    squeezed := public.squeeze_text(buf);
+    joined := char_length(buf) >= 3 or squeezed in ('porra','caralho','merda','foda','cu','puta','vsf','vtnc','pqp','krl','buceta');
+    if joined then out := out || ' ' || buf; else out := out || ' ' || trim(regexp_replace(buf, '(.)', '\1 ', 'g')); end if;
+  end if;
+  return trim(regexp_replace(out, '\s+', ' ', 'g'));
+end;
+$$;
+
+-- Classificador de regras. Mantenha alinhado com shared/moderation.ts.
+-- Não é inteligência artificial. Mensagem positiva e limpa já sai aprovada.
 create or replace function public.classify_text(p_text text)
 returns jsonb
 language plpgsql
 immutable
 as $$
 declare
-  folded text := public.fold_text(p_text);
+  raw text := coalesce(p_text, '');
+  norm text := public.normalize_school_text(raw);
+  squeezed text := public.squeeze_text(norm);
   word text;
+  note_rules text := 'Classificação automática por regras (não é inteligência artificial): ';
   blocked text[] := array[
-    'porra','caralho','cacete','foder','fodas','fodase','foda','fdp','merda','bosta',
-    'buceta','boceta','puta','puto','putaria','arrombado','arrombada','viado','viada',
-    'bicha','baitola','retardado','retardada','vagabundo','vagabunda','otario','otaria',
-    'vsf','vtnc','tnc','pqp','krl','nazista','nazi','estupro','estuprar','pedofil',
-    'pedofilia','pornografia','porno','porn','punheta','boquete','xoxota','xereca','piroca','nudes','onlyfans'
+    'porra','poha','caralho','carai','cacete','krl','pqp','vsf','vtnc','fdp','merda','bosta','cu',
+    'foda','foder','fodase','fuder','arrombado','arrombada','otario','otaria','idiota','imbecil','babaca',
+    'nojento','nojenta','vagabundo','vagabunda','retardado','retardada','buceta','boceta','puta','puto',
+    'putaria','vadia','pornografia','porno','porn','nudes','punheta','boquete','xoxota','piroca','onlyfans',
+    'estupro','estuprar','pedofilia','nazista','nazi','viado','viada','bicha','baitola'
   ];
+  phrases text[] := array['vai se foder','vai se ferrar','tomar no cu','filho da puta','filha da puta','cala a boca','seu burro','sua burra','seu lixo','seu idiota'];
   criticism text[] := array[
-    'nao gostei','nao recomendo','pessimo','pessima','horrivel','decepcion','reclamacao',
-    'reclamar','reclame','fracasso','vergonha','mal organizado','desorganizado','desorganizada',
-    'muito ruim','que absurdo','indignado','indignada','pior evento','pessima organizacao'
+    'nao gostei','nao recomendo','poderia melhorar','precisa melhorar','faltou organiz','mal organizado',
+    'desorganizado','reclamacao','reclamar','decepcion','muito ruim','que absurdo','indignado','fila enorme',
+    'fila grande','demorou demais','falta de organizacao','pior evento'
   ];
-  sensitive text[] := array[
-    'sexo','sexual','nudez','pelado','pelada','sexy','droga','drogas','violencia','suicidio',
-    'suicidar','matar','morte','arma','armas','sangue','odio','racismo','machismo','homofobia',
-    'bullying','preconceito'
+  sensitive text[] := array['sexo','sexual','nudez','pelado','pelada','droga','drogas','violencia','suicidio','matar','morte','arma','armas','sangue','odio','racismo','machismo','homofobia','bullying','preconceito'];
+  spam text[] := array['ganhe dinheiro','clique aqui','cassino','apostas','compre agora','whatsapp','pix de','siga meu'];
+  positive text[] := array[
+    'parabens','orgulho','lindo','linda','lindos','lindas','incrivel','amei','adorei','maravilh','excelente',
+    'otimo','otima','inspir','arrasou','sensacional','perfeito','perfeita','obrigado','obrigada','sucesso',
+    'feliz','brilhant','fantast','talentoso','talentosa','emocion','espetac','gratidao','alegria'
   ];
-  spam text[] := array['ganhe dinheiro','clique aqui','siga meu','siga o meu','cassino','apostas','aposta gratis','pix de','compre agora','whatsapp'];
-  note_rules text := 'Filtro de regras da escola. Isto não é inteligência artificial.';
+  positive_hit boolean := false;
 begin
-  if coalesce(p_text, '') ~* '[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}'
-     or coalesce(p_text, '') ~ '\d{3}\.?\d{3}\.?\d{3}-?\d{2}'
-     or coalesce(p_text, '') ~ '(?:\+?55\s*)?(?:\(?\d{2}\)?\s*)?9\d{4}[-\s]?\d{4}' then
-    return jsonb_build_object('label','personal_data','status','pending','audience','admin','note', note_rules || ' Possível telefone, e-mail ou CPF. Visível só na administração.','aiUsed', false);
+  if raw ~* '[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}'
+     or raw ~ '\d{3}\.?\d{3}\.?\d{3}-?\d{2}'
+     or raw ~ '(?:\+?55\s*)?(?:\(?\d{2}\)?\s*)?9\d{4}[-\s.]?\d{4}' then
+    return jsonb_build_object('label','personal_data','status','pending','audience','admin','note', note_rules || 'possível telefone, e-mail ou CPF. Fica só na administração.','aiUsed', false, 'sentiment', null);
   end if;
   foreach word in array blocked loop
-    if folded ~ ('(^|[^a-z])' || word || '([^a-z]|$)') then
-      return jsonb_build_object('label','blocked','status','rejected','audience','public','note', note_rules || ' Termo incompatível com o ambiente escolar. Não publicado.','aiUsed', false);
+    if norm ~ ('(^|[^a-z])' || word || '([^a-z]|$)') or squeezed ~ ('(^|[^a-z])' || public.squeeze_text(word) || '([^a-z]|$)') then
+      return jsonb_build_object('label','blocked','status','rejected','audience','public','note', note_rules || 'termo ofensivo ou inadequado. Não publicada no painel.','aiUsed', false, 'sentiment', 'negative');
     end if;
   end loop;
-  if folded ~ '(.)\1{11}' or coalesce(p_text, '') ~* 'https?://|www\.' then
-    return jsonb_build_object('label','spam','status','pending','audience','admin','note', note_rules || ' Possível propaganda ou repetição. Visível só na administração.','aiUsed', false);
+  foreach word in array phrases loop
+    if position(word in norm) > 0 or position(public.squeeze_text(word) in squeezed) > 0 then
+      return jsonb_build_object('label','blocked','status','rejected','audience','public','note', note_rules || 'ofensa. Não publicada no painel.','aiUsed', false, 'sentiment', 'negative');
+    end if;
+  end loop;
+  if raw ~* 'https?://|www\.' then
+    return jsonb_build_object('label','spam','status','rejected','audience','public','note', note_rules || 'link ou anúncio. Não publicada no painel.','aiUsed', false, 'sentiment', 'negative');
   end if;
   foreach word in array spam loop
-    if position(word in folded) > 0 then
-      return jsonb_build_object('label','spam','status','pending','audience','admin','note', note_rules || ' Possível propaganda ou repetição. Visível só na administração.','aiUsed', false);
+    if position(word in norm) > 0 then
+      return jsonb_build_object('label','spam','status','rejected','audience','public','note', note_rules || 'propaganda. Não publicada no painel.','aiUsed', false, 'sentiment', 'negative');
     end if;
   end loop;
   foreach word in array criticism loop
-    if position(word in folded) > 0 then
-      return jsonb_build_object('label','criticism','status','pending','audience','admin','note', note_rules || ' Possível crítica. Encaminhada somente à administração.','aiUsed', false);
+    if position(word in norm) > 0 then
+      return jsonb_build_object('label','criticism','status','pending','audience','admin','note', note_rules || 'crítica. Encaminhada somente à equipe.','aiUsed', false, 'sentiment', 'negative');
     end if;
   end loop;
+  if position('fila' in norm) > 0 and (position('enorme' in norm) > 0 or position('grande' in norm) > 0 or position('demor' in norm) > 0) then
+    return jsonb_build_object('label','criticism','status','pending','audience','admin','note', note_rules || 'crítica. Encaminhada somente à equipe.','aiUsed', false, 'sentiment', 'negative');
+  end if;
   foreach word in array sensitive loop
-    if folded ~ ('(^|[^a-z])' || word || '([^a-z]|$)') then
-      return jsonb_build_object('label','sensitive','status','pending','audience','public','note', note_rules || ' Termo sensível para o ambiente escolar. Aguardando revisão humana.','aiUsed', false);
+    if norm ~ ('(^|[^a-z])' || word || '([^a-z]|$)') then
+      return jsonb_build_object('label','sensitive','status','pending','audience','public','note', note_rules || 'termo sensível. Aguardando revisão humana.','aiUsed', false, 'sentiment', null);
     end if;
   end loop;
-  return jsonb_build_object('label','clean','status','pending','audience','public','note', note_rules || ' Nenhum termo bloqueado. Aguardando aprovação humana.','aiUsed', false);
+  foreach word in array positive loop
+    if norm ~ ('(^|[^a-z])' || word) then
+      positive_hit := true;
+    end if;
+  end loop;
+  if norm ~ '(^|[^a-z])(top|show|bacana)([^a-z]|$)' and char_length(norm) <= 48 then
+    positive_hit := true;
+  end if;
+  if positive_hit and position('pessimo' in norm) = 0 and position('horrivel' in norm) = 0 and position('odiei' in norm) = 0 then
+    return jsonb_build_object('label','positive','status','approved','audience','public','note', note_rules || 'mensagem positiva e sem termo proibido. Publicada no painel.','aiUsed', false, 'sentiment', 'positive');
+  end if;
+  if position('pessimo' in norm) > 0 or position('horrivel' in norm) > 0 or position('odiei' in norm) > 0 or position('vergonha' in norm) > 0 then
+    return jsonb_build_object('label','criticism','status','pending','audience','admin','note', note_rules || 'tom negativo. Encaminhada somente à equipe.','aiUsed', false, 'sentiment', 'negative');
+  end if;
+  return jsonb_build_object('label','neutral','status','pending','audience','public','note', note_rules || 'texto neutro, sem elogio claro. Aguardando revisão humana.','aiUsed', false, 'sentiment', 'neutral');
 end;
 $$;
 
@@ -338,16 +427,15 @@ begin
     result := public.classify_text(trim(coalesce(author, '') || ' ' || coalesce(body, '')));
     if p_type in ('photo', 'video') and result->>'status' <> 'rejected' and result->>'audience' <> 'admin' then
       result := result || jsonb_build_object(
-        'label', case when result->>'label' = 'clean' then 'media_review' else result->>'label' end,
+        'label', 'media_review',
         'status', 'pending',
-        'note', case when result->>'label' = 'clean'
-          then 'Fotografia ou vídeo aguarda revisão humana antes de aparecer no painel. Não é inteligência artificial.'
-          else result->>'note' end
+        'audience', 'public',
+        'note', 'Classificação automática por regras (não é inteligência artificial): fotografia ou vídeo aguarda revisão humana antes do painel.'
       );
-    elsif p_type = 'message' and result->>'label' = 'clean' and ev.auto_approve_clean_messages and not ev.ai_enabled then
+    elsif p_type = 'message' and result->>'status' = 'approved' and ev.auto_approve_clean_messages = false then
       result := result || jsonb_build_object(
-        'status', 'approved',
-        'note', 'Aprovado pelo filtro de regras (lista de termos), conforme configuração da escola. Isto não é inteligência artificial e não entende ironia.'
+        'status', 'pending',
+        'note', result->>'note' || ' A escola desligou a publicação automática.'
       );
     end if;
   end if;

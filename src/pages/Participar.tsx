@@ -151,6 +151,9 @@ export function ParticiparPage() {
 
         {event?.status === 'live' && (
           <>
+            <p style={{ marginTop: 0 }}>
+              Mensagem positiva entra no painel na hora. Palavrão, ofensa e propaganda são barrados automaticamente. Texto neutro e crítica ficam com a equipe. Foto e vídeo só depois da revisão humana.
+            </p>
             <div className="action-grid">
               <button className="action" onClick={() => setPanel('mensagem')}><span>01</span><strong>Enviar mensagem</strong><span>Até {max} caracteres</span></button>
               <button className="action" onClick={() => setPanel('foto')}><span>02</span><strong>Enviar fotografia</strong><span>Até {event.photoMaxCount} imagens</span></button>

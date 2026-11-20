@@ -10,24 +10,26 @@ Não havia credencial de Supabase nem de hospedagem. O site **não foi publicado
 
 Comando: `npm test`.
 
-Filtro de regras (`tests/rules.ts`):
+Classificador de regras (`tests/rules.ts`), sem chave de IA:
 
-- Mensagem respeitosa fica pendente e o texto deixa claro que não é inteligência artificial.
-- A aprovação automática, se a escola ligar, também avisa que não é IA.
-- Palavrão é rejeitado.
-- “Não gostei…” vai só para a administração.
-- “Coleta de lixo” não é tratada como crítica.
-- “Diga não ao racismo” fica pendente para uma pessoa decidir.
-- E-mail e telefone não vão ao mural.
-- Foto, mesmo educada, fica em revisão humana.
-- Reação da lista oficial é aceita. Emoji fora da lista, não.
+- 12 mensagens positivas, entre elas “A feira está linda” e “Parabéns… incrível”, saem aprovadas e o texto avisa que não é inteligência artificial.
+- 13 palavrões são recusados, inclusive ofuscados: `p o r r a`, `P.O.R.R.A`, `pooorraaa`, `p0rr@`, `p-o-r-r-a`, `c a r a l h o`, `m3rda`, `f o d a`, `v t n c`.
+- Ofensas (“seu burro”, “uns idiotas”, “cala a boca”) são recusadas.
+- Propaganda e link são recusados.
+- Crítica (“Não gostei da organização”, “Poderia melhorar o som”) fica só para a equipe, mesmo quando também elogia os alunos.
+- Texto neutro (“Estou na sala 3”, “coleta de lixo”, “o burro” num projeto de ciências) espera uma pessoa e não é recusado à toa.
+- “Diga não ao racismo” e “violência na escola” ficam pendentes.
+- E-mail, telefone e CPF não vão ao mural.
+- Foto com legenda positiva continua na revisão humana. Foto com palavrão é recusada.
+- Se a escola desliga a publicação automática, o elogio fica na fila, ainda marcado como positivo.
 
 Fluxos de API (`tests/flows.ts`), com dois identificadores de navegador:
 
 - A primeira presença conta. A segunda, no mesmo navegador, não aumenta o total.
 - Outro navegador aumenta o total.
-- Mensagem limpa não aparece no feed público antes da aprovação.
-- Depois que a equipe aprova, a mensagem entra no feed.
+- Mensagem positiva entra no feed público sem passar pela equipe, com rótulo `positive` e `aiUsed: false`.
+- `p o r r a` é recusado no servidor e não entra no feed.
+- Texto neutro fica pendente e só aparece depois que a equipe aprova.
 - Foto fica inacessível sem login (resposta 401) e abre para a equipe. Depois de aprovada, abre no endereço público.
 - Vídeo de 18 segundos é recusado. Vídeo de 2 segundos, em MP4, entra na fila.
 - Emergência liga e desliga no cadastro do evento.
@@ -37,9 +39,9 @@ Fluxos de API (`tests/flows.ts`), com dois identificadores de navegador:
 
 No Chrome, com o site compilado:
 
-- `/participar` registrou presença, mostrou o aviso de que o número é por navegador e ofereceu mensagem, foto, vídeo e reação.
-- `/tv` em 1920×1080 mostrou a mensagem aprovada, o contador, o brasão e o estado “Ao vivo”.
-- `/admin` entrou com senha, mostrou indicadores (presenças, mensagens, pendentes, horário no fuso de Campo Verde) e a fila de moderação com a foto ainda privada.
+- `/participar` registrou presença, avisou que mensagem positiva entra na hora e ofereceu mensagem, foto, vídeo e reação.
+- `/tv` em 1920×1080 mostrou ao mesmo tempo a mensagem positiva, o contador de presenças, a foto e o vídeo, com o estado “Ao vivo”.
+- `/admin` entrou com senha, mostrou indicadores e a fila com o motivo da classificação. O envio `p o r r a` aparece como ofensa recusada, com botões para a equipe publicar ou manter fora.
 - A foto pendente não estava no feed público.
 
 As capturas estão em `docs/screenshots/` (`participar.png`, `tv.png`, `admin.png`, `admin-moderacao.png`, `home.png`). O contador nelas é de navegadores de teste abertos neste ensaio, mais uma mensagem e uma foto de teste. Não é público da feira. O banco dessas imagens não entra no Git.

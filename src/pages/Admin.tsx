@@ -205,8 +205,9 @@ function Moderacao({ data, onAct }: { data: AdminOverview; onAct: (work: () => P
   return (
     <section>
       <p>
-        Fotos e vídeos sempre esperam uma pessoa. Sem chave de IA no servidor, nenhuma publicação recebe selo de inteligência artificial.
-        {data.aiKeyConfigured ? ' Há um serviço de IA configurado para texto.' : ' Nenhum serviço de IA está configurado.'}
+        Mensagens e nomes passam por um classificador de regras em português, no servidor: elogio claro vai ao painel; palavrão, ofensa e propaganda são recusados; crítica fica só aqui; texto neutro espera uma pessoa. Não é inteligência artificial.
+        {data.aiKeyConfigured ? ' Há uma camada opcional de IA ligada para texto.' : ' Nenhuma chave de IA está configurada.'}
+        {' '}Fotos e vídeos continuam na revisão humana. O motivo aparece em cada item e a equipe pode aprovar ou recusar por cima da classificação.
       </p>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {(['pending', 'approved', 'rejected', 'all'] as const).map((item) => (
@@ -223,6 +224,22 @@ function Moderacao({ data, onAct }: { data: AdminOverview; onAct: (work: () => P
   )
 }
 
+function labelName(label: string | null): string {
+  const names: Record<string, string> = {
+    positive: 'Positiva — publicada pelas regras',
+    neutral: 'Neutra — na fila humana',
+    blocked: 'Ofensiva — recusada pelas regras',
+    criticism: 'Crítica — só na equipe',
+    personal_data: 'Dado pessoal — só na equipe',
+    spam: 'Propaganda — recusada pelas regras',
+    sensitive: 'Termo sensível — na fila humana',
+    media_review: 'Foto ou vídeo — revisão humana',
+    emoji: 'Reação da lista oficial',
+    clean: 'Sem termo proibido',
+  }
+  return names[label || ''] || 'Classificação por regras'
+}
+
 function PostCard({ post, slug, onAct }: { post: AdminPost; slug: string; onAct: (work: () => Promise<unknown>, ok: string) => Promise<void> }) {
   const privateFeed = post.audience === 'admin' || post.moderationLabel === 'criticism' || post.moderationLabel === 'personal_data'
   return (
@@ -233,9 +250,9 @@ function PostCard({ post, slug, onAct }: { post: AdminPost; slug: string; onAct:
       <div>
         <strong>{post.authorName || 'Sem nome'} · {post.type} · {post.status}</strong>
         <div>{post.emoji} {post.body}</div>
-        <small>{formatTime(post.createdAt)} · {post.moderationNote}</small>
-        {post.aiUsed && <div>Texto analisado pelo serviço de IA configurado. Mídia continua com revisão humana.</div>}
-        {!post.aiUsed && <div>Revisão humana. {post.moderationLabel === 'emoji' ? 'Reação da lista oficial.' : 'O filtro de regras não é inteligência artificial.'}</div>}
+        <small>{formatTime(post.createdAt)}</small>
+        <div><strong>{labelName(post.moderationLabel)}.</strong> {post.moderationNote}</div>
+        {post.aiUsed && <div>Houve também a camada opcional de IA. A mídia, se houver, continua com revisão humana.</div>}
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
           <button className="btn-royal" onClick={() => void onAct(() => api.admin.moderate(slug, post.id, 'approve'), 'Atualizado.')}>Aprovar</button>
           {privateFeed && (
@@ -429,7 +446,7 @@ function Exibicao({ data, onAct }: { data: AdminOverview; onAct: (work: () => Pr
       </div>
       <label className="check">
         <input type="checkbox" checked={autoApprove} onChange={(ev) => setAutoApprove(ev.target.checked)} />
-        <span>Aprovar automaticamente mensagens que o filtro de regras considerar limpas. Isso não é inteligência artificial e não entende ironia. Fotos e vídeos continuam na fila humana.</span>
+        <span>Publicar na hora as mensagens classificadas como positivas pelo classificador de regras. Isso não é inteligência artificial. Neutras e críticas continuam na fila. Ofensas são recusadas. Fotos e vídeos sempre esperam uma pessoa.</span>
       </label>
       <label className="check">
         <input type="checkbox" checked={ai} onChange={(ev) => setAi(ev.target.checked)} />

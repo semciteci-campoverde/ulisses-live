@@ -1,64 +1,121 @@
 import assert from 'node:assert/strict'
 import { moderateContent } from '../shared/moderation.ts'
+import type { ModerationResult } from '../shared/types.ts'
 
-function status(body: string, type: 'message' | 'photo' | 'video' | 'reaction' = 'message', extra: { auto?: boolean; emoji?: string } = {}) {
-  return moderateContent({
-    type,
-    authorName: 'Ana',
-    body,
-    emoji: extra.emoji,
-    autoApproveClean: extra.auto,
-    aiEnabled: false,
-  })
+function judge(body: string, type: 'message' | 'photo' | 'video' = 'message', author = 'Ana'): ModerationResult {
+  return moderateContent({ type, authorName: author, body, autoPublishPositive: true })
 }
 
-const clean = status('A feira está linda. Parabéns aos estudantes!')
-assert.equal(clean.status, 'pending')
-assert.equal(clean.label, 'clean')
-assert.equal(clean.aiUsed, false)
-assert.match(clean.note, /não é inteligência artificial/i)
+function expectStatus(body: string, status: ModerationResult['status'], label?: ModerationResult['label'], audience?: ModerationResult['audience']) {
+  const got = judge(body)
+  assert.equal(got.status, status, `${body} → status ${got.status}, esperado ${status}. ${got.note}`)
+  if (label) assert.equal(got.label, label, `${body} → rótulo ${got.label}`)
+  if (audience) assert.equal(got.audience, audience, `${body} → audiência ${got.audience}`)
+  assert.equal(got.aiUsed, false)
+  assert.match(got.note, /não é inteligência artificial/i)
+}
 
-const approvedByRule = status('Que orgulho da nossa escola!', 'message', { auto: true })
-assert.equal(approvedByRule.status, 'approved')
-assert.match(approvedByRule.note, /não é inteligência artificial/i)
+const positive = [
+  'A feira está linda! Orgulho da nossa escola.',
+  'Parabéns aos estudantes, que trabalho incrível!',
+  'Amei cada projeto. Vocês arrasaram!',
+  'Que apresentação maravilhosa. Obrigado, Ulisses!',
+  'Ficou excelente. Sucesso sempre!',
+  'Estou muito feliz com a feira.',
+  'Top!',
+  'Show de bola os experimentos.',
+  'Adorei a feira e os trabalhos.',
+  'Que lindo ver a comunidade reunida.',
+  'Inspirador. Um futuro brilhante para Campo Verde.',
+  'Nota 10 para a turma de ciências.',
+]
 
-const blocked = status('Que merda de organização')
-assert.equal(blocked.status, 'rejected')
-assert.equal(blocked.label, 'blocked')
+const swearing = [
+  'que porra é essa',
+  'p o r r a',
+  'P.O.R.R.A!!!',
+  'pooorraaa',
+  'p0rr@',
+  'p-o-r-r-a',
+  'c a r a l h o',
+  'm3rda',
+  'f o d a',
+  'v t n c',
+  'vai se foder',
+  'seu arrombado',
+  'Que lindo, sua porra',
+]
 
-const criticism = status('Não gostei da organização do pátio')
-assert.equal(criticism.audience, 'admin')
-assert.equal(criticism.label, 'criticism')
-assert.notEqual(criticism.status, 'approved')
+const offensive = [
+  'Vocês são uns idiotas',
+  'seu burro',
+  'cala a boca',
+  'seu lixo',
+  'filho da puta',
+  'que nojento',
+]
 
-const lixo = status('Nosso projeto é sobre coleta de lixo na escola')
-assert.equal(lixo.label, 'clean')
-assert.equal(lixo.audience, 'public')
+const spam = [
+  'Ganhe dinheiro agora clique aqui',
+  'Apostas grátis no cassino',
+  'Acesse https://exemplo.com e compre agora',
+]
 
-const racismo = status('Diga não ao racismo')
-assert.equal(racismo.label, 'sensitive')
-assert.equal(racismo.status, 'pending')
+const criticism = [
+  'Não gostei da organização da fila.',
+  'Poderia melhorar o som do auditório.',
+  'Faltou organização na entrada.',
+  'Faltou organização na entrada, mas parabéns aos alunos.',
+  'A fila estava enorme.',
+]
 
-const email = status('Me chama em ana.silva@escola.br')
-assert.equal(email.label, 'personal_data')
-assert.equal(email.audience, 'admin')
+const neutral = [
+  'Estou na sala 3.',
+  'Projeto de robótica.',
+  'Ok',
+  'Nosso projeto é sobre coleta de lixo na escola.',
+  'O burro é o tema do projeto de ciências.',
+]
 
-const phone = status('Meu zap é 65999998888')
-assert.equal(phone.label, 'personal_data')
+const sensitive = [
+  'Diga não ao racismo.',
+  'Projeto sobre violência na escola.',
+]
 
-const photo = status('Experiência de ciências muito legal', 'photo')
+for (const text of positive) expectStatus(text, 'approved', 'positive', 'public')
+for (const text of swearing) expectStatus(text, 'rejected', 'blocked', 'public')
+for (const text of offensive) expectStatus(text, 'rejected', 'blocked', 'public')
+for (const text of spam) expectStatus(text, 'rejected', 'spam')
+for (const text of criticism) expectStatus(text, 'pending', 'criticism', 'admin')
+for (const text of neutral) expectStatus(text, 'pending', 'neutral', 'public')
+for (const text of sensitive) expectStatus(text, 'pending', 'sensitive', 'public')
+
+expectStatus('Me chama em ana.silva@escola.br, amei', 'pending', 'personal_data', 'admin')
+expectStatus('Meu zap é (65) 99999-8888', 'pending', 'personal_data', 'admin')
+expectStatus('CPF 123.456.789-09', 'pending', 'personal_data', 'admin')
+
+const paused = moderateContent({
+  type: 'message',
+  authorName: 'Ana',
+  body: 'A feira está linda',
+  autoPublishPositive: false,
+})
+assert.equal(paused.status, 'pending')
+assert.equal(paused.label, 'positive')
+
+const photo = judge('Experiência linda de ciências', 'photo')
 assert.equal(photo.status, 'pending')
 assert.equal(photo.label, 'media_review')
 assert.match(photo.note, /revisão humana/i)
 
-const badPhoto = status('Isso é um porra', 'photo')
+const badPhoto = judge('Isso é uma porra', 'photo')
 assert.equal(badPhoto.status, 'rejected')
 
 const reaction = moderateContent({ type: 'reaction', emoji: '👏' })
 assert.equal(reaction.status, 'approved')
-assert.equal(reaction.label, 'emoji')
+assert.equal(reaction.aiUsed, false)
 
-const badReaction = moderateContent({ type: 'reaction', emoji: '💀', body: 'oi' })
-assert.equal(badReaction.status, 'rejected')
+const badName = moderateContent({ type: 'message', authorName: 'Porra', body: 'Amei a feira' })
+assert.equal(badName.status, 'rejected')
 
-console.log('Regras de moderação: ok')
+console.log(`Classificador: ${positive.length} positivas, ${swearing.length} palavrões, ${offensive.length} ofensas, ${spam.length} spams, ${criticism.length} críticas, ${neutral.length} neutras. ok`)

@@ -9,7 +9,7 @@ Este manual é para a equipe da escola. A parte técnica de publicação na inte
 
 ## O que o sistema faz
 
-Um único QR Code abre o celular do visitante. A presença entra sozinha, sem nome, CPF, telefone ou cadastro. A pessoa pode deixar mensagem, foto, vídeo curto ou reação. A equipe aprova o que pode ir para as televisões. Várias TVs mostram a mesma programação e se atualizam sozinhas.
+Um único QR Code abre o celular do visitante. A presença entra sozinha, sem nome, CPF, telefone ou cadastro. A pessoa pode deixar mensagem, foto, vídeo curto ou reação. Mensagem positiva aparece na televisão na hora. Foto e vídeo só entram depois que a equipe aprova. Várias TVs mostram a mesma programação e se atualizam sozinhas.
 
 O número na tela é de **presenças por navegador**. A mesma pessoa, em outro celular, conta de novo. Quem volta no mesmo navegador não conta duas vezes. O número não diz quantas pessoas estão na escola naquele minuto.
 
@@ -36,7 +36,15 @@ Quatro opções:
 - **Vídeo** — até 15 segundos, MP4 ou WEBM.
 - **Reação** — emoji da lista. Pode aparecer na TV na hora.
 
-Foto e vídeo só entram na TV depois que uma pessoa da equipe aprova. Mensagem limpa também fica na fila, salvo se a escola ligar o filtro automático de regras. Esse filtro **não é inteligência artificial** e não entende ironia.
+O servidor classifica a mensagem, o nome e a legenda com regras em português. Não é inteligência artificial.
+
+- Elogio claro, sem ofensa: entra no painel na hora.
+- Palavrão, ofensa, discriminação, conteúdo sexual, ameaça ou propaganda: é recusado e não aparece.
+- Crítica, mesmo educada: fica só na área da equipe.
+- Texto neutro ou duvidoso: espera uma pessoa.
+- O classificador junta letras separadas (`p o r r a`), ignora acento, troca número por letra quando está grudado na palavra (`p0rra`) e reduz repetição (`pooorraaa`).
+
+Foto e vídeo continuam na fila humana, mesmo com legenda positiva, porque a feira pode ter estudantes.
 
 Para foto ou vídeo, a pessoa marca a autorização de uso no painel. A autorização do Instagram é outra caixa, separada e opcional. Sem ela, o material não deve ir para as redes.
 
@@ -56,7 +64,7 @@ Na aba **Moderação**:
 
 Crítica e possível telefone, e-mail ou CPF ficam só na administração. Se a equipe decidir que foi um alarme falso, use **Publicar no painel mesmo assim**.
 
-Fotos e vídeos nunca são aprovados por máquina. Sem uma chave de IA configurada no servidor, o sistema não diz que fez análise automática.
+Cada item mostra o motivo da classificação automática. A equipe pode aprovar ou recusar por cima dessa decisão. Fotos e vídeos nunca são aprovados por máquina. Se a escola configurar uma chave de IA no servidor, ela entra só como camada extra, depois das regras, e a tela avisa quando ela foi usada. Sem a chave, nada é chamado de inteligência artificial.
 
 ## Emergência e pausa
 
@@ -66,14 +74,7 @@ O botão vermelho **parar as TVs**, na aba **Exibição**, tira o conteúdo do p
 
 ## Televisão
 
-A página `/tv` é horizontal, 16:9, e alterna sozinha:
-
-1. Mensagens aprovadas
-2. Mosaico de fotos
-3. Vídeos aprovados, sem som
-4. Contador de presenças
-5. Convite com o QR de presença
-6. Instagram, com o outro QR
+A página `/tv` é horizontal, 16:9. Ao mesmo tempo ela mostra a mensagem em destaque, o contador grande de presenças, a foto aprovada e o vídeo aprovado (sem som). De tempos em tempos o destaque troca para o QR de presença. O Instagram continua no rodapé da programação e no QR colorido impresso.
 
 Quando a contagem cruza 50, 100, 200, 300, 500 ou 1.000, todas as TVs mostram uma cena de celebração por alguns segundos. As metas podem ser alteradas na aba Exibição.
 

@@ -125,7 +125,7 @@ Só depois do banco no ar, e só se houver uma chave gratuita ou já autorizada:
 npx supabase functions deploy moderate-text
 ```
 
-Grave `AI_API_KEY` como segredo da função. Na aba Exibição, ligue a análise automática de texto. Foto e vídeo continuam na fila humana. Se a função não existir ou a chave faltar, o envio permanece para revisão humana e a tela não fala em IA.
+Grave `AI_API_KEY` como segredo da função. A publicação das mensagens positivas já acontece pelas regras, sem essa chave. A função só acrescenta uma segunda leitura do texto. Foto e vídeo continuam na fila humana. Se a função não existir ou a chave faltar, a tela não fala em IA.
 
 ### Caminho sem Supabase
 
