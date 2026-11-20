@@ -1,0 +1,41 @@
+{
+  "name": "ulisses-live",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "ULISSES LIVE — Presença, Interação e Memória Digital. Feira do Conhecimento 2026, EECM Ulisses Guimarães.",
+  "scripts": {
+    "dev": "node --experimental-strip-types server/dev.ts",
+    "start": "node --experimental-strip-types server/index.ts",
+    "build": "vite build",
+    "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.server.json --noEmit",
+    "test": "node --experimental-strip-types tests/rules.ts && node --experimental-strip-types tests/flows.ts",
+    "preview": "vite preview --host 127.0.0.1 --port 4173"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.81.1",
+    "busboy": "^1.6.0",
+    "fflate": "^0.8.2",
+    "jspdf": "^2.5.2",
+    "jspdf-autotable": "^3.8.4",
+    "qrcode": "^1.5.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/busboy": "^1.5.4",
+    "@types/node": "^22.10.2",
+    "@types/qrcode": "^1.5.5",
+    "@types/react": "^18.3.14",
+    "@types/react-dom": "^18.3.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "playwright-core": "^1.65.1",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.16",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5"
+  }
+}

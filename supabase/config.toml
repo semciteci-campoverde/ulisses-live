@@ -1,0 +1,4 @@
+project_id = "ulisses-live"
+
+[functions.moderate-text]
+verify_jwt = false
