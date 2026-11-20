@@ -35,7 +35,7 @@ function Login({ onSuccess }: { onSuccess: (email: string) => void }) {
       <Sky />
       <main className="page-wrap narrow" style={{ paddingTop: 48 }}>
         <SchoolLogo />
-        <h1 className="display gold-text" style={{ fontSize: 62, marginBottom: 0 }}>Área da equipe</h1>
+        <h1 className="display gold-text" style={{ fontSize: 'clamp(2.2rem, 11vw, 62px)', marginBottom: 0 }}>Área da equipe</h1>
         <p>Acesso da organização da EECM Ulisses Guimarães. Visitantes não entram aqui.</p>
         <form
           className="glass"
@@ -128,7 +128,7 @@ function Desk({ email, initialSlug, onLogout }: { email: string; initialSlug: st
         <main style={{ padding: '1rem 1.1rem 3rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <div>
-              <h1 className="display gold-text" style={{ fontSize: 48, margin: 0 }}>{data?.event.name || 'Carregando'}</h1>
+              <h1 className="display gold-text" style={{ fontSize: 'clamp(2.2rem, 11vw, 48px)', margin: 0 }}>{data?.event.name || 'Carregando'}</h1>
               <div style={{ fontSize: 14, opacity: 0.8 }}>{usingSupabase ? 'Banco Supabase' : 'Servidor local desta máquina'} · {data?.event.isDemo ? 'demonstração' : 'dados do evento'}</div>
             </div>
             <label>

@@ -1,4 +1,4 @@
-const CACHE = 'ulisses-live-v3'
+const CACHE = 'ulisses-live-v4'
 const SHELL = ['/', '/participar', '/brand/logo.png', '/fonts/fonts.css', '/manifest.webmanifest', '/favicon.png']
 
 self.addEventListener('install', (event) => {

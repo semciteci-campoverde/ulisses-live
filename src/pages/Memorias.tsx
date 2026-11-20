@@ -29,11 +29,11 @@ export function MemoriasPage() {
       <Sky />
       <Topbar event={event} slug={slug} />
       <main className="page-wrap">
-        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center' }}>
           <SchoolLogo src={event?.logoUrl} />
           <div>
-            <p className="script" style={{ fontSize: 48, margin: 0 }}>Memória</p>
-            <h1 className="display gold-text" style={{ fontSize: 62, margin: 0 }}>{event?.name || 'Feira do Conhecimento'}</h1>
+            <p className="script" style={{ fontSize: 'clamp(2.2rem, 11vw, 48px)', margin: 0 }}>Memória</p>
+            <h1 className="display gold-text" style={{ fontSize: 'clamp(2.2rem, 11vw, 62px)', margin: 0 }}>{event?.name || 'Feira do Conhecimento'}</h1>
           </div>
         </div>
         {!ended && (
