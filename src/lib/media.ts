@@ -1,9 +1,15 @@
 export async function compressImage(file: File): Promise<Blob> {
   const name = file.name.toLowerCase()
-  if (file.type === 'image/heic' || file.type === 'image/heif' || name.endsWith('.heic') || name.endsWith('.heif')) {
-    throw new Error('Este celular enviou HEIC. Tire a foto pela câmera do navegador ou escolha uma imagem JPEG.')
+  const heic = file.type === 'image/heic' || file.type === 'image/heif' || name.endsWith('.heic') || name.endsWith('.heif')
+  let bitmap: ImageBitmap
+  try {
+    // O Safari do iPhone abre HEIC normalmente; só recusa se este navegador não conseguir ler.
+    bitmap = await createImageBitmap(file)
+  } catch {
+    throw new Error(heic
+      ? 'Este celular enviou a foto em HEIC e o navegador não conseguiu abrir. Tire a foto pelo botão da câmera desta página ou escolha uma imagem JPEG.'
+      : 'Não foi possível abrir esta imagem. Escolha uma foto JPEG ou PNG.')
   }
-  const bitmap = await createImageBitmap(file)
   const maxEdge = 1600
   const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height))
   const canvas = document.createElement('canvas')

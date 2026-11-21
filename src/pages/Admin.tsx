@@ -224,6 +224,9 @@ function Fila({ queue, onDecide }: { queue: AdminPost[]; onDecide: (post: AdminP
     <section className="fila">
       {queue.map((post) => {
         const privateOnly = post.audience === 'admin' || post.moderationLabel === 'criticism'
+        // Foto/vídeo sem arquivo: o envio ainda está chegando ou falhou. Não deixa aprovar vazio.
+        const missingFile = (post.type === 'photo' || post.type === 'video') && post.media.length === 0
+        const stale = missingFile && Date.now() - new Date(post.createdAt).getTime() > 15 * 60 * 1000
         return (
           <article key={post.id} className="fila-card glass" data-testid="fila-card" data-id={post.id}>
             <div className="fila-kind">
@@ -237,10 +240,15 @@ function Fila({ queue, onDecide }: { queue: AdminPost[]; onDecide: (post: AdminP
                   : <img key={media.id} src={media.url} alt="" />)}
               </div>
             )}
+            {missingFile && (
+              <p className="fila-private" data-testid="fila-sem-arquivo">
+                {stale ? '⚠️ O arquivo não chegou (o envio falhou). Pode recusar.' : '⏳ O arquivo ainda está chegando… aguarde um pouco.'}
+              </p>
+            )}
             {post.body && <p className="fila-text">{post.emoji} {post.body}</p>}
             {!post.body && post.emoji && <p className="fila-text">{post.emoji}</p>}
             <div className="fila-actions">
-              <button className="btn-approve" onClick={() => onDecide(post, 'approve')}>Aprovar</button>
+              <button className="btn-approve" disabled={missingFile} onClick={() => onDecide(post, 'approve')}>Aprovar</button>
               <button className="btn-reject" onClick={() => onDecide(post, 'reject')}>Recusar</button>
             </div>
           </article>

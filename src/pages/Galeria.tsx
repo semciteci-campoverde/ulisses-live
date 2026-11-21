@@ -34,11 +34,12 @@ export function GaleriaPage() {
           ))}
         </div>
         <h2>Vídeos</h2>
+        {videos.length === 0 && <p>Ainda não há vídeos autorizados.</p>}
         <div className="stat-grid">
           {videos.map((post) => (
             <figure key={post.id} className="glass" style={{ borderRadius: 18, overflow: 'hidden', margin: 0 }}>
-              <video src={post.media[0].url} controls playsInline style={{ width: '100%', maxHeight: 320, background: '#000' }} />
-              <figcaption style={{ padding: '0.7rem 0.9rem' }}>{post.authorName} — {post.body}</figcaption>
+              <video src={post.media[0]?.url} controls playsInline preload="metadata" style={{ width: '100%', maxHeight: 320, background: '#000' }} />
+              <figcaption style={{ padding: '0.7rem 0.9rem' }}>{post.authorName}{post.body ? ` — ${post.body}` : ''}</figcaption>
             </figure>
           ))}
         </div>

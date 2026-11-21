@@ -26,6 +26,7 @@ export function ParticiparPage() {
   const [instagramConsent, setInstagramConsent] = useState(false)
   const [website, setWebsite] = useState('')
   const [busy, setBusy] = useState(false)
+  const [progress, setProgress] = useState<number | null>(null)
   const [photos, setPhotos] = useState<File[]>([])
   const [video, setVideo] = useState<File | null>(null)
   const [already, setAlready] = useState(false)
@@ -48,6 +49,7 @@ export function ParticiparPage() {
     try {
       const files: { blob: Blob; name: string }[] = []
       let durationSeconds: number | undefined
+      if ((type === 'photo' || type === 'video') && !imageConsent) throw new Error('Marque a autorização de uso da imagem para enviar.')
       if (type === 'photo') {
         if (!photos.length) throw new Error('Escolha até cinco fotografias.')
         for (const file of photos.slice(0, event?.photoMaxCount || 5)) {
@@ -57,10 +59,13 @@ export function ParticiparPage() {
       }
       if (type === 'video') {
         if (!video) throw new Error('Escolha ou grave um vídeo.')
-        durationSeconds = await readVideoDuration(video)
+        const read = await readVideoDuration(video).catch(() => NaN)
+        // Alguns celulares não informam a duração (Infinity/NaN): o servidor confere o tamanho.
+        durationSeconds = Number.isFinite(read) && read > 0 ? read : undefined
         const max = event?.videoMaxSeconds || 15
-        if (durationSeconds > max + 0.3) throw new Error(`O vídeo precisa ter no máximo ${max} segundos.`)
-        if (video.size > (event?.videoMaxBytes || 26 * 1024 * 1024)) throw new Error('O vídeo está grande demais.')
+        if (durationSeconds && durationSeconds > max + 0.3) throw new Error(`O vídeo tem ${Math.round(durationSeconds)} segundos. O máximo é ${max} segundos: grave um trecho mais curto.`)
+        const maxBytes = event?.videoMaxBytes || 25 * 1024 * 1024
+        if (video.size > maxBytes) throw new Error(`O vídeo tem ${(video.size / 1048576).toFixed(0)} MB e o máximo é ${Math.round(maxBytes / 1048576)} MB. Grave um trecho mais curto ou em qualidade menor (1080p ou 720p).`)
         files.push({ blob: video, name: video.name || 'video.mp4' })
       }
       const result = await api.createPost(slug, {
@@ -75,6 +80,7 @@ export function ParticiparPage() {
         openedAt: openedAt.current,
         durationSeconds,
         files,
+        onProgress: files.length ? (f) => setProgress(f) : undefined,
       })
       const published = result.moderation.status === 'approved' && result.moderation.audience === 'public'
       setNotice(
@@ -94,6 +100,7 @@ export function ParticiparPage() {
       setNotice(caught instanceof ApiError || caught instanceof Error ? caught.message : 'Não foi possível enviar.')
     } finally {
       setBusy(false)
+      setProgress(null)
     }
   }
 
@@ -201,7 +208,6 @@ export function ParticiparPage() {
                       type="file"
                       accept="image/*"
                       multiple
-                      capture="environment"
                       onChange={(ev) => setPhotos(Array.from(ev.target.files || []).slice(0, event.photoMaxCount))}
                     />
                     <small>{photos.length} selecionada(s). As imagens são comprimidas neste aparelho antes do envio.</small>
@@ -210,7 +216,7 @@ export function ParticiparPage() {
                 {panel === 'video' && (
                   <label>
                     <span className="label">Gravar ou escolher um vídeo de até {event.videoMaxSeconds}s</span>
-                    <input className="field" type="file" accept="video/mp4,video/webm,video/*" capture="environment" onChange={(ev) => setVideo(ev.target.files?.[0] || null)} />
+                    <input className="field" type="file" accept="video/mp4,video/webm,video/*" onChange={(ev) => setVideo(ev.target.files?.[0] || null)} />
                   </label>
                 )}
                 {(panel === 'foto' || panel === 'video') && (
@@ -225,7 +231,15 @@ export function ParticiparPage() {
                     </label>
                   </>
                 )}
-                <button className="btn-gold" disabled={busy} type="submit">{busy ? 'Enviando…' : 'Enviar para o mural'}</button>
+                <button className="btn-gold" disabled={busy} type="submit">
+                  {busy ? (progress !== null ? `Enviando… ${Math.round(progress * 100)}%` : 'Enviando…') : 'Enviar para o mural'}
+                </button>
+                {busy && progress !== null && (
+                  <div className="upload-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}>
+                    <b><i style={{ width: `${Math.round(progress * 100)}%` }} /></b>
+                    <span>Não feche esta página até terminar.</span>
+                  </div>
+                )}
               </form>
             )}
 

@@ -22,6 +22,47 @@ export function createSupabaseBackend(url: string, key: string): Backend {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
   })
 
+  // iPhone grava .mov (video/quicktime); o conteúdo é o mesmo tipo de arquivo do MP4 e o Chrome toca como MP4.
+  function normalizeMime(type: string, kind: string): string {
+    const t = (type || '').toLowerCase()
+    if (kind === 'video') return t === 'video/webm' ? 'video/webm' : 'video/mp4'
+    if (t === 'image/png' || t === 'image/webp') return t
+    return 'image/jpeg'
+  }
+
+  // Envio com barra de progresso (o upload do supabase-js não informa progresso) e uma nova tentativa se a rede cair.
+  async function uploadPrivate(path: string, blob: Blob, contentType: string, onProgress: (f: number) => void): Promise<void> {
+    const token = (await supabase.auth.getSession()).data.session?.access_token || key
+    const once = () => new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', `${url}/storage/v1/object/ulisses-private/${path}`)
+      xhr.setRequestHeader('authorization', `Bearer ${token}`)
+      xhr.setRequestHeader('apikey', key)
+      xhr.setRequestHeader('content-type', contentType)
+      xhr.setRequestHeader('x-upsert', 'false')
+      xhr.setRequestHeader('cache-control', 'max-age=3600')
+      xhr.timeout = 10 * 60 * 1000
+      xhr.upload.onprogress = (ev) => { if (ev.lengthComputable && ev.total) onProgress(ev.loaded / ev.total) }
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) return resolve()
+        let msg = ''
+        try { msg = String(JSON.parse(xhr.responseText).message || '') } catch { msg = '' }
+        if (xhr.status === 413 || /size|large|exceed/i.test(msg)) return reject(new ApiError(413, 'O arquivo está grande demais (máximo 25 MB). Grave um vídeo mais curto ou em qualidade menor.'))
+        if (/mime|type/i.test(msg)) return reject(new ApiError(415, 'Formato não aceito. Use foto JPEG/PNG ou vídeo MP4.'))
+        if (/exists|duplicate/i.test(msg)) return resolve()
+        reject(new ApiError(xhr.status || 400, 'Não foi possível guardar o arquivo. Tente de novo.'))
+      }
+      xhr.onerror = () => reject(new ApiError(0, 'A conexão caiu durante o envio. Verifique a internet e tente de novo.'))
+      xhr.ontimeout = () => reject(new ApiError(0, 'O envio demorou demais. Tente de novo com uma conexão melhor ou um vídeo menor.'))
+      xhr.send(blob)
+    })
+    try {
+      await once()
+    } catch (caught) {
+      if (caught instanceof ApiError && caught.status === 0) { onProgress(0); await once() } else throw caught
+    }
+  }
+
   async function eventRow(slug: string): Promise<Row> {
     const { data, error } = await supabase.from('events').select('*').eq('slug', slug).maybeSingle()
     fail(error)
@@ -135,26 +176,32 @@ export function createSupabaseBackend(url: string, key: string): Backend {
       fail(error)
       const payload = data as CreatePostResult
       if ((draft.type === 'photo' || draft.type === 'video') && draft.files?.length) {
-        let sort = 0
-        for (const file of draft.files) {
-          const ext = file.name.split('.').pop()?.toLowerCase() || (draft.type === 'video' ? 'mp4' : 'jpg')
-          const objectPath = `pending/${payload.postId}/${crypto.randomUUID()}.${ext}`
-          const uploaded = await supabase.storage.from('ulisses-private').upload(objectPath, file.blob, {
-            contentType: file.blob.type || (draft.type === 'video' ? 'video/mp4' : 'image/jpeg'),
-            upsert: false,
-          })
-          fail(uploaded.error, 'Não foi possível guardar o arquivo.')
-          const registered = await supabase.rpc('register_media', {
-            p_post_id: payload.postId,
-            p_visitor_id: draft.visitorId,
-            p_path: objectPath,
-            p_mime: file.blob.type || 'application/octet-stream',
-            p_bytes: file.blob.size,
-            p_duration: draft.durationSeconds || null,
-            p_sort: sort,
-          })
-          fail(registered.error)
-          sort += 1
+        const total = draft.files.length
+        try {
+          let sort = 0
+          for (const file of draft.files) {
+            const mime = normalizeMime(file.blob.type, draft.type)
+            const ext = mime === 'video/webm' ? 'webm' : mime === 'video/mp4' ? 'mp4' : mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : 'jpg'
+            const objectPath = `pending/${payload.postId}/${crypto.randomUUID()}.${ext}`
+            const index = sort
+            await uploadPrivate(objectPath, file.blob, mime, (f) => draft.onProgress?.((index + f) / total))
+            const registered = await supabase.rpc('register_media', {
+              p_post_id: payload.postId,
+              p_visitor_id: draft.visitorId,
+              p_path: objectPath,
+              p_mime: mime,
+              p_bytes: file.blob.size,
+              p_duration: draft.durationSeconds || null,
+              p_sort: sort,
+            })
+            fail(registered.error)
+            sort += 1
+          }
+          draft.onProgress?.(1)
+        } catch (caught) {
+          // O envio falhou: apaga a publicação vazia para ela não ficar na fila sem arquivo.
+          await supabase.rpc('discard_failed_post', { p_post_id: payload.postId, p_visitor_id: draft.visitorId }).then(() => null, () => null)
+          throw caught
         }
       }
       if (draft.type === 'message' && payload.moderation.status === 'pending' && payload.moderation.label === 'clean') {
@@ -266,14 +313,18 @@ export function createSupabaseBackend(url: string, key: string): Backend {
           fail(medias.error)
           for (const media of (medias.data || []) as Row[]) {
             if (media.public_path || !media.storage_path) continue
-            const downloaded = await supabase.storage.from('ulisses-private').download(String(media.storage_path))
-            if (downloaded.error || !downloaded.data) throw new ApiError(400, 'Não foi possível abrir a mídia para aprovar.')
             const dest = String(media.storage_path).replace(/^pending\//, 'approved/')
-            const uploaded = await supabase.storage.from('ulisses-public').upload(dest, downloaded.data, {
-              contentType: String(media.mime || 'application/octet-stream'),
-              upsert: true,
-            })
-            fail(uploaded.error, 'Não foi possível publicar a mídia.')
+            // Cópia feita no próprio servidor (rápida, não gasta o 4G de quem aprova); se falhar, baixa e reenvia.
+            const copied = await supabase.storage.from('ulisses-private').copy(String(media.storage_path), dest, { destinationBucket: 'ulisses-public' })
+            if (copied.error && !/exists|duplicate/i.test(copied.error.message)) {
+              const downloaded = await supabase.storage.from('ulisses-private').download(String(media.storage_path))
+              if (downloaded.error || !downloaded.data) throw new ApiError(400, 'Não foi possível abrir a mídia para aprovar.')
+              const uploaded = await supabase.storage.from('ulisses-public').upload(dest, downloaded.data, {
+                contentType: String(media.mime || 'application/octet-stream'),
+                upsert: true,
+              })
+              fail(uploaded.error, 'Não foi possível publicar a mídia.')
+            }
             const saved = await supabase.from('post_media').update({ public_path: dest }).eq('id', media.id)
             fail(saved.error)
           }
