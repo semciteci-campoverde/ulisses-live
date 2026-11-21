@@ -20,6 +20,8 @@ export interface PostDraft {
   openedAt?: number
   durationSeconds?: number
   files?: { blob: Blob; name: string }[]
+  /** Progresso do envio dos arquivos (0 a 1). */
+  onProgress?: (fraction: number) => void
 }
 
 export interface Backend {

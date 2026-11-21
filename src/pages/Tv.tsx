@@ -68,6 +68,32 @@ export function TvPage() {
     }
   }, [])
 
+  // Tela sempre acesa (Wake Lock) e cursor escondido quando o mouse fica parado.
+  useEffect(() => {
+    let lock: { release: () => Promise<void> } | null = null
+    const nav = navigator as Navigator & { wakeLock?: { request: (type: 'screen') => Promise<{ release: () => Promise<void> }> } }
+    const ask = () => {
+      if (document.visibilityState === 'visible' && nav.wakeLock) nav.wakeLock.request('screen').then((l) => { lock = l }, () => {})
+    }
+    ask()
+    document.addEventListener('visibilitychange', ask)
+    let idle = 0
+    const moved = () => {
+      document.body.classList.remove('tv-nocursor')
+      window.clearTimeout(idle)
+      idle = window.setTimeout(() => document.body.classList.add('tv-nocursor'), 3000)
+    }
+    moved()
+    window.addEventListener('mousemove', moved)
+    return () => {
+      document.removeEventListener('visibilitychange', ask)
+      window.removeEventListener('mousemove', moved)
+      window.clearTimeout(idle)
+      document.body.classList.remove('tv-nocursor')
+      void lock?.release().catch(() => {})
+    }
+  }, [])
+
   // Recarga completa a cada 60 s, além do tempo real e da checagem curta do useLiveEvent.
   useEffect(() => {
     const timer = window.setInterval(() => reload(), FULL_REFRESH_MS)
@@ -87,7 +113,9 @@ export function TvPage() {
   const showVideos = mural && event?.scenes.videos !== false
   const messages = useMemo(() => posts.filter((post) => post.type === 'message' && post.body), [posts])
   const photos = useMemo(() => slidesOf(posts, 'photo', 'image/'), [posts])
-  const videos = useMemo(() => slidesOf(posts, 'video', 'video/'), [posts])
+  // Vídeos que esta TV não consegue mostrar (ex.: HEVC do iPhone sem suporte no aparelho) saem da roleta.
+  const [badVideos, setBadVideos] = useState<Set<string>>(() => new Set())
+  const videos = useMemo(() => slidesOf(posts, 'video', 'video/').filter((clip) => !badVideos.has(clip.id)), [posts, badVideos])
   const reactions = useMemo(() => posts.filter((post) => post.type === 'reaction' && post.emoji), [posts])
 
   const msgR = useRoulette(showMessages ? messages : EMPTY, () => MESSAGE_MS)
@@ -96,6 +124,12 @@ export function TvPage() {
     clip.seconds && clip.seconds > 0 ? Math.max(4000, Math.min(VIDEO_MS, clip.seconds * 1000)) : VIDEO_MS,
   )
   const reactR = useRoulette(mural ? reactions : EMPTY, () => REACTION_MS)
+  const advanceVideo = videoR.advance
+  const markBadVideo = (id?: string) => {
+    if (!id) return
+    setBadVideos((prev) => (prev.has(id) ? prev : new Set(prev).add(id)))
+    advanceVideo()
+  }
   // Proporção (largura/altura) da foto e do vídeo atuais: decide se os painéis ficam lado a lado ou empilhados
   const [aspect, setAspect] = useState<{ p?: number; v?: number }>({})
   const both = !!(photoR.current && videoR.current)
@@ -220,9 +254,14 @@ export function TvPage() {
                   <div className="tv-pane-bg video" aria-hidden="true" />
                   <video key={`${videoR.current.id}-${videoR.turn}`} className="tv-pane-media tv-fade" src={videoR.current.url} data-testid="tv-video" data-id={videoR.current.id}
                     onLoadedMetadata={(e) => { const vd = e.currentTarget; if (vd.videoHeight) setAspect((a) => ({ ...a, v: vd.videoWidth / vd.videoHeight })) }}
+                    onTimeUpdate={(e) => {
+                      // Toca mas sem imagem (codec sem suporte): tira da roleta desta TV.
+                      const vd = e.currentTarget
+                      if (vd.currentTime > 1.2 && !vd.videoWidth) markBadVideo(videoR.current?.id)
+                    }}
                     autoPlay muted playsInline preload="auto"
                     onEnded={videoR.advance}
-                    onError={() => window.setTimeout(videoR.advance, 1500)} />
+                    onError={() => markBadVideo(videoR.current?.id)} />
                   <span className="tv-chip tv-chip-kind">🎬 Vídeo <span className="tv-pos">{videoR.position}/{videoR.total}</span></span>
                   <figcaption className="tv-chip tv-chip-cap">
                     <strong>{videoR.current.post.authorName || 'Participante'}</strong> · sem áudio
